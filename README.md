@@ -220,7 +220,7 @@ The plugin provides several hooks for customization:
 
 ### Author Information
 - **Plugin Name**: Weekly Newsletter Sender
-- **Version**: 1.1
+- **Version**: 2.0
 - **Author**: Marep
 - **Author URI**: [https://marep.sk](https://marep.sk)
 
