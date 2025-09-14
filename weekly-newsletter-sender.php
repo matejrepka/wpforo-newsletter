@@ -1687,6 +1687,11 @@ function wns_settings_page() {
     }
     ?>
     <style>
+    /* Fix for WordPress admin body padding interference */
+    body.toplevel_page_wns-main {
+        padding: 0 !important;
+    }
+    
     /* Paper-style grey, white, black admin UI */
     .wns-admin-wrapper {
         background: #fefefe;
@@ -2894,7 +2899,7 @@ ${footerHTML}
 <head>
 <meta charset="utf-8">
 <style>
-body {background: ${values.backgroundColor}; font-family: ${values.fontFamily}; margin:0; padding:20px; color: ${values.textColor}; line-height: ${values.lineHeight};}
+body {background: ${values.backgroundColor}; font-family: ${values.fontFamily}; margin:0; padding:${values.contentPadding}px; color: ${values.textColor}; line-height: ${values.lineHeight};}
 .content {color: ${values.textColor}; background:#fff; padding: 0; margin: 0 auto; border-radius: ${values.cardRadius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);}
 .email-header {background: ${values.headerColor}; color: #fff; text-align: center; padding: ${values.contentPadding}px;}
 .email-header h1 {margin: 0 !important; padding: 0; border: none;}
