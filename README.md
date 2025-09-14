@@ -3,7 +3,7 @@
 
 A comprehensive WordPress plugin that automatically sends weekly newsletters containing WordPress blog posts and wpForo forum activity to your community members.
 
-![Plugin Version](https://img.shields.io/badge/version-1.1-blue.svg)
+![Plugin Version](https://img.shields.io/badge/version-2-blue.svg)
 ![WordPress Compatibility](https://img.shields.io/badge/wordpress-5.0%2B-green.svg)
 ![PHP Version](https://img.shields.io/badge/php-7.4%2B-purple.svg)
 
