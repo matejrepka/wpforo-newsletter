@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Weekly Newsletter Sender
  * Description: Sends a weekly newsletter with WordPress posts and wpForo forum posts to all users.
- * Version: 1.1
+ * Version: 2.0
  * Author: Marep
  * Author URI: https://marep.sk
  */
