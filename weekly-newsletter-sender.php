@@ -5,9 +5,600 @@
  * Version: 2.0
  * Author: Marep
  * Author URI: https://marep.sk
+ * License: Proprietary - All Rights Reserved
+ * Text Domain: weekly-newsletter-sender
+ * Network: false
+ * 
+ * IMPORTANT: This plugin is proprietary software. 
+ * Modification, redistribution, or reverse engineering is strictly prohibited.
+ * Any unauthorized modifications may break functionality and void support.
  */
 
-if (!defined('ABSPATH')) exit;
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    die('Direct access forbidden.');
+}
+
+// Prevent plugin modification detection
+if (!defined('WNS_PLUGIN_FILE')) {
+    define('WNS_PLUGIN_FILE', __FILE__);
+}
+
+// Check for file integrity on admin pages
+add_action('admin_init', 'wns_check_file_integrity');
+
+function wns_check_file_integrity() {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    
+    // Store original file hash - this will be the "official" version hash
+    $original_hash = get_option('wns_file_hash');
+    if (!$original_hash) {
+        // Set hash on first run - this is now the official protected version
+        $original_hash = md5_file(WNS_PLUGIN_FILE);
+        update_option('wns_file_hash', $original_hash);
+        return;
+    }
+    
+    $current_hash = md5_file(WNS_PLUGIN_FILE);
+    if ($current_hash !== $original_hash) {
+        add_action('admin_notices', function() {
+            $reset_url = wp_nonce_url(
+                add_query_arg('wns_reset_hash', '1', admin_url('admin.php?page=wns-main')), 
+                'wns_reset_hash'
+            );
+            echo '<div class="notice notice-error">
+                <p><strong>Weekly Newsletter Sender:</strong> Plugin file has been modified! This may indicate unauthorized changes.</p>
+                <p>If this is an official update, <a href="' . $reset_url . '">click here to accept the new version</a>. Otherwise, please reinstall the original version.</p>
+            </div>';
+        });
+    }
+}
+
+// Handle hash reset for official updates
+add_action('admin_init', function() {
+    if (isset($_GET['wns_reset_hash']) && $_GET['wns_reset_hash'] == '1' && 
+        wp_verify_nonce($_GET['_wpnonce'], 'wns_reset_hash') && 
+        current_user_can('manage_options')) {
+        
+        // Reset hash to current file version
+        $new_hash = md5_file(WNS_PLUGIN_FILE);
+        update_option('wns_file_hash', $new_hash);
+        
+        // Redirect to remove URL parameters
+        wp_redirect(admin_url('admin.php?page=wns-main&hash_updated=1'));
+        exit;
+    }
+    
+    // Show success message after hash reset
+    if (isset($_GET['hash_updated']) && $_GET['hash_updated'] == '1') {
+        add_action('admin_notices', function() {
+            echo '<div class="notice notice-success is-dismissible">
+                <p><strong>Weekly Newsletter Sender:</strong> File integrity hash has been updated successfully.</p>
+            </div>';
+            // Clean URL to prevent message from showing again on refresh
+            echo '<script>
+                if (window.history.replaceState) {
+                    window.history.replaceState(null, null, window.location.href.replace(/[?&]hash_updated=1/, ""));
+                }
+            </script>';
+        });
+    }
+    
+    // TEMPORARY: Auto-reset hash on first load after update to fix current issue
+    $temp_fix_done = get_option('wns_hash_temp_fix_done');
+    if (!$temp_fix_done && current_user_can('manage_options')) {
+        // Reset to current version hash
+        $new_hash = md5_file(WNS_PLUGIN_FILE);
+        update_option('wns_file_hash', $new_hash);
+        update_option('wns_hash_temp_fix_done', true);
+        
+        add_action('admin_notices', function() {
+            echo '<div class="notice notice-info is-dismissible">
+                <p><strong>Weekly Newsletter Sender:</strong> File integrity system has been updated for the new protected version.</p>
+            </div>';
+        });
+    }
+});
+
+// Disable plugin editor for this specific plugin
+add_filter('user_can_access_admin_page', function($access) {
+    global $pagenow, $plugin;
+    if ($pagenow === 'plugin-editor.php' && isset($_GET['file']) && 
+        strpos($_GET['file'], basename(WNS_PLUGIN_FILE)) !== false) {
+        wp_die('Editing this plugin is not allowed for security and functionality reasons.');
+    }
+    return $access;
+});
+
+// Add plugin protection notice
+add_action('admin_footer-plugin-editor.php', function() {
+    ?>
+    <script>
+    jQuery(document).ready(function($) {
+        $('select[name="plugin"] option').each(function() {
+            if ($(this).val().indexOf('weekly-newsletter-sender') !== -1) {
+                $(this).prop('disabled', true).text($(this).text() + ' (Protected)');
+            }
+        });
+    });
+    </script>
+    <?php
+});
+
+// License and terms enforcement - integrated into main page
+function wns_enforce_license_terms() {
+    // No separate enforcement needed - handled within the main page
+}
+add_action('admin_init', 'wns_enforce_license_terms');
+
+// Integrated license interface within the main page
+function wns_show_license_interface() {
+    // Handle license acceptance
+    if (isset($_POST['wns_accept_license']) && wp_verify_nonce($_POST['wns_license_nonce'], 'wns_accept_license')) {
+        update_option('wns_license_accepted', true);
+        update_option('wns_license_accepted_date', current_time('mysql'));
+        update_option('wns_license_accepted_by', get_current_user_id());
+        
+        // Reload the page to show the main interface
+        wp_redirect(admin_url('admin.php?page=wns-main&license_accepted=1'));
+        exit;
+    }
+    
+    ?>
+    <div class="wrap">
+        <style>
+            .wns-license-container {
+                background: #fff;
+                margin: 20px 0;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                overflow: hidden;
+                max-width: 800px;
+            }
+            .wns-license-header {
+                background: linear-gradient(135deg, #2c5aa0 0%, #1e3a8a 100%);
+                color: #fff;
+                padding: 25px 30px;
+                text-align: center;
+            }
+            .wns-license-header h1 {
+                margin: 0;
+                color: #fff;
+                font-size: 24px;
+                font-weight: 600;
+            }
+            .wns-license-header .subtitle {
+                margin-top: 8px;
+                font-size: 14px;
+                opacity: 0.9;
+            }
+            .wns-license-content {
+                padding: 30px;
+            }
+            .wns-license-section {
+                margin-bottom: 25px;
+            }
+            .wns-license-section h3 {
+                color: #2c5aa0;
+                font-size: 16px;
+                margin-bottom: 12px;
+                border-bottom: 1px solid #e1e5e9;
+                padding-bottom: 5px;
+            }
+            .wns-license-section ul {
+                margin-left: 18px;
+                margin-bottom: 15px;
+            }
+            .wns-license-section li {
+                margin-bottom: 6px;
+                line-height: 1.5;
+            }
+            .wns-warning-box {
+                background: #fff3cd;
+                border: 1px solid #ffeaa7;
+                border-left: 4px solid #f39c12;
+                padding: 15px;
+                margin: 20px 0;
+                border-radius: 4px;
+            }
+            .wns-warning-box strong {
+                color: #b7741f;
+            }
+            .wns-acceptance-form {
+                background: #f8f9fa;
+                border: 1px solid #dee2e6;
+                padding: 25px;
+                border-radius: 6px;
+                margin-top: 20px;
+            }
+            .wns-checkbox-container {
+                display: flex;
+                align-items: flex-start;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+            .wns-checkbox-container input[type="checkbox"] {
+                margin-top: 3px;
+                transform: scale(1.1);
+            }
+            .wns-checkbox-container label {
+                font-weight: 600;
+                color: #333;
+            }
+            .wns-button-container {
+                display: flex;
+                gap: 15px;
+                justify-content: center;
+            }
+            .wns-btn {
+                padding: 12px 25px;
+                border: none;
+                border-radius: 5px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                text-decoration: none;
+                display: inline-block;
+                transition: all 0.3s ease;
+            }
+            .wns-btn-accept {
+                background: #28a745;
+                color: #fff;
+            }
+            .wns-btn-accept:hover:not(:disabled) {
+                background: #218838;
+            }
+            .wns-btn-accept:disabled {
+                background: #94a3b8;
+                cursor: not-allowed;
+            }
+            .wns-btn-decline {
+                background: #6c757d;
+                color: #fff;
+            }
+            .wns-btn-decline:hover {
+                background: #545b62;
+                color: #fff;
+            }
+        </style>
+        
+        <div class="wns-license-container">
+            <div class="wns-license-header">
+                <h1>Weekly Newsletter Sender</h1>
+                <div class="subtitle">License Agreement Required - Version 2.0</div>
+            </div>
+            
+            <div class="wns-license-content">
+                <p><strong>Welcome!</strong> Before you can use Weekly Newsletter Sender, please read and accept the software license agreement below.</p>
+                
+                <div class="wns-license-section">
+                    <h3>� License Terms & Conditions</h3>
+                    <ul>
+                        <li><strong>Single Site License:</strong> Valid for one WordPress installation only</li>
+                        <li><strong>No Code Modification:</strong> Source code alterations are strictly prohibited</li>
+                        <li><strong>No Redistribution:</strong> Cannot be shared, sold, or distributed to third parties</li>
+                        <li><strong>Official Updates Only:</strong> Updates provided through authorized channels exclusively</li>
+                        <li><strong>Support Void if Modified:</strong> Unauthorized changes terminate support eligibility</li>
+                        <li><strong>Termination:</strong> License automatically terminates upon violation of terms</li>
+                    </ul>
+                </div>
+                
+                <div class="wns-license-section">
+                    <h3>🔒 Security & Protection</h3>
+                    <p>This plugin includes built-in security features:</p>
+                    <ul>
+                        <li>File integrity monitoring and tamper detection</li>
+                        <li>Protection against unauthorized modifications</li>
+                        <li>Secure newsletter delivery system</li>
+                    </ul>
+                </div>
+                
+                <div class="wns-warning-box">
+                    <strong>⚠️ Important:</strong> Unauthorized modifications may compromise functionality, security, and data integrity. Always use official versions for proper operation and support eligibility.
+                </div>
+                
+                <div class="wns-license-section">
+                    <h3>☎️ Support & Contact</h3>
+                    <p><strong>Developer:</strong> Marep (marep.sk)<br>
+                    <strong>Support:</strong> support@marep.sk<br>
+                    <strong>License Date:</strong> <?php echo date('F j, Y'); ?></p>
+                </div>
+                
+                <form method="post" class="wns-acceptance-form">
+                    <?php wp_nonce_field('wns_accept_license', 'wns_license_nonce'); ?>
+                    
+                    <div class="wns-checkbox-container">
+                        <input type="checkbox" id="wns-agree-terms" name="wns_agree_terms" required />
+                        <label for="wns-agree-terms">I have read, understood, and agree to be bound by these license terms and conditions</label>
+                    </div>
+                    
+                    <div class="wns-button-container">
+                        <a href="<?php echo admin_url('plugins.php'); ?>" class="wns-btn wns-btn-decline">Cancel</a>
+                        <button type="submit" name="wns_accept_license" id="wns-accept-btn" class="wns-btn wns-btn-accept" disabled>Accept License & Continue</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <p style="text-align: center; color: #666; font-size: 13px; margin-top: 20px;">
+            © <?php echo date('Y'); ?> Marep. All Rights Reserved.
+        </p>
+        
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkbox = document.getElementById('wns-agree-terms');
+            const submitBtn = document.getElementById('wns-accept-btn');
+            
+            checkbox.addEventListener('change', function() {
+                submitBtn.disabled = !this.checked;
+            });
+        });
+        </script>
+    </div>
+    <?php
+}
+
+// Plugin meta removed to keep only basic information (version and author)
+
+// Show activation notice for license
+register_activation_hook(WNS_PLUGIN_FILE, function() {
+    // Set a transient to show activation notice
+    set_transient('wns_activation_notice', true, 30);
+});
+
+// Display activation notice and success message
+add_action('admin_notices', function() {
+    // Activation notice
+    if (get_transient('wns_activation_notice') && !get_option('wns_license_accepted')) {
+        delete_transient('wns_activation_notice');
+        ?>
+        <div class="notice notice-info is-dismissible" style="border-left-color: #2c5aa0;">
+            <p><strong>Weekly Newsletter Sender Activated!</strong></p>
+            <p>Please <a href="<?php echo admin_url('admin.php?page=wns-main'); ?>" style="font-weight: 600;">accept the license terms</a> to start using the plugin.</p>
+        </div>
+        <?php
+    }
+    
+    // License accepted success message
+    if (isset($_GET['license_accepted']) && $_GET['license_accepted'] == '1' && get_option('wns_license_accepted')) {
+        ?>
+        <div class="notice notice-success is-dismissible">
+            <p><strong>License Accepted Successfully!</strong> Welcome to Weekly Newsletter Sender. You can now configure your newsletter settings.</p>
+        </div>
+        <?php
+    }
+});
+
+// AJAX handler for email preview generation
+add_action('wp_ajax_wns_generate_email_preview', function() {
+    check_ajax_referer('wns_preview_nonce', 'nonce');
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Insufficient permissions');
+        return;
+    }
+    
+    try {
+        // Calculate date range based on scheduled send time (not today)
+        $send_day = get_option('wns_send_day', 'monday');
+        $send_time = get_option('wns_send_time', '08:00');
+        $timezone = wp_timezone();
+        $next_send = new DateTime('now', $timezone);
+        
+        // Calculate next scheduled send date
+        try {
+            $target = new DateTime('this ' . $send_day, $timezone);
+            $time_parts = explode(':', $send_time);
+            $target->setTime((int)$time_parts[0], (int)$time_parts[1]);
+            
+            if ($target < $next_send) {
+                $target->modify('+1 week');
+            }
+            
+            // Date range should be 7 days before the scheduled send
+            $date_to = clone $target;
+            $date_to->modify('-1 day'); // Day before send
+            $date_from = clone $date_to;
+            $date_from->modify('-6 days'); // 7 days total (including end date)
+            
+            $date_from_str = $date_from->format('Y-m-d');
+            $date_to_str = $date_to->format('Y-m-d');
+            
+        } catch (Exception $e) {
+            // Fallback to 7 days before scheduled send time if date calculation fails
+            $fallback_end = date('Y-m-d', strtotime('next ' . $send_day . ' -1 day'));
+            $date_to_str = $fallback_end;
+            $date_from_str = date('Y-m-d', strtotime($fallback_end . ' -6 days'));
+        }
+        
+        // Get settings for what to include
+        $include_wp = get_option('wns_include_wp', 1);
+        $include_forum = get_option('wns_include_forum', 1);
+        
+        // Get WordPress posts for preview - with error handling
+        $wp_posts = [];
+        if ($include_wp) {
+            try {
+                $wp_posts_result = wns_get_wp_posts_summary($date_from_str, $date_to_str);
+                $wp_posts = is_array($wp_posts_result) ? $wp_posts_result : [];
+            } catch (Exception $e) {
+                error_log('[WNS Preview] WordPress posts error: ' . $e->getMessage());
+            }
+        }
+        
+        // Get wpForo posts for preview - with error handling
+        $wpforo_summary = [];
+        if ($include_forum) {
+            try {
+                if (function_exists('wns_get_wpforo_summary')) {
+                    $wpforo_result = wns_get_wpforo_summary($date_from_str, $date_to_str);
+                    $wpforo_summary = is_array($wpforo_result) ? $wpforo_result : [];
+                }
+            } catch (Exception $e) {
+                error_log('[WNS Preview] wpForo posts error: ' . $e->getMessage());
+            }
+        }
+        
+        // Generate email content safely
+        $subject = '';
+        $email_content = '';
+        try {
+            // Use the same subject logic as the actual sending function
+            $subject = get_option('wns_subject', 'Weekly Newsletter');
+            // Add date range to subject for uniqueness (matching actual send logic)
+            if ($date_from_str && $date_to_str) {
+                $subject .= " (" . date('d.m.Y', strtotime($date_from_str)) . " - " . date('d.m.Y', strtotime($date_to_str)) . ")";
+            }
+            
+            if (function_exists('wns_build_email')) {
+                // Count total items for email building
+                $forum_post_count = 0;
+                foreach ($wpforo_summary as $forum_data) {
+                    if (isset($forum_data['threads']) && is_array($forum_data['threads'])) {
+                        foreach ($forum_data['threads'] as $thread_data) {
+                            if (isset($thread_data['posts']) && is_array($thread_data['posts'])) {
+                                $forum_post_count += count($thread_data['posts']);
+                            }
+                        }
+                    }
+                }
+                $total_count = count($wp_posts) + $forum_post_count;
+                
+                $email_content = wns_build_email($wpforo_summary, $total_count, $wp_posts);
+            } else {
+                $email_content = '<p>Email builder function not available. Please check plugin configuration.</p>';
+            }
+        } catch (Exception $e) {
+            error_log('[WNS Preview] Email build error: ' . $e->getMessage());
+            $email_content = '<p>Error building email content: ' . esc_html($e->getMessage()) . '</p>';
+        }
+        
+        // Get recipient count safely
+        $recipients_count = 0;
+        try {
+            if (function_exists('wns_get_user_emails')) {
+                $user_emails = wns_get_user_emails();
+                $recipients_count = is_array($user_emails) ? count($user_emails) : 0;
+            }
+        } catch (Exception $e) {
+            error_log('[WNS Preview] Recipients error: ' . $e->getMessage());
+        }
+        
+        // Count forum activities safely
+        $forum_activity_count = 0;
+        try {
+            foreach ($wpforo_summary as $forum_data) {
+                if (isset($forum_data['threads']) && is_array($forum_data['threads'])) {
+                    foreach ($forum_data['threads'] as $thread_data) {
+                        if (isset($thread_data['posts']) && is_array($thread_data['posts'])) {
+                            $forum_activity_count += count($thread_data['posts']);
+                        }
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            error_log('[WNS Preview] Forum activity count error: ' . $e->getMessage());
+        }
+        
+        // Create content status messages
+        $wp_status = '';
+        $forum_status = '';
+        
+        if (!$include_wp) {
+            $wp_status = ' (WordPress posts disabled in settings)';
+        } elseif (empty($wp_posts)) {
+            $wp_status = ' (no new posts in this period)';
+        }
+        
+        if (!$include_forum) {
+            $forum_status = ' (Forum posts disabled in settings)';
+        } elseif (empty($wpforo_summary)) {
+            $forum_status = ' (no forum activity in this period)';
+        }
+        
+        // Build preview HTML
+        $preview_html = '
+        <div class="wns-preview-meta">
+            <div class="wns-preview-meta-item">
+                <div class="wns-preview-meta-label">Subject Line</div>
+                <div class="wns-preview-meta-value">' . esc_html($subject) . '</div>
+            </div>
+            <div class="wns-preview-meta-item">
+                <div class="wns-preview-meta-label">Recipients</div>
+                <div class="wns-preview-meta-value">' . $recipients_count . ' users</div>
+            </div>
+            <div class="wns-preview-meta-item">
+                <div class="wns-preview-meta-label">Content Period</div>
+                <div class="wns-preview-meta-value">' . date('M j', strtotime($date_from_str)) . ' - ' . date('M j, Y', strtotime($date_to_str)) . '</div>
+            </div>
+            <div class="wns-preview-meta-item">
+                <div class="wns-preview-meta-label">WordPress Posts</div>
+                <div class="wns-preview-meta-value">' . count($wp_posts) . ' posts' . esc_html($wp_status) . '</div>
+            </div>
+            <div class="wns-preview-meta-item">
+                <div class="wns-preview-meta-label">Forum Activities</div>
+                <div class="wns-preview-meta-value">' . $forum_activity_count . ' posts in ' . count($wpforo_summary) . ' forums' . esc_html($forum_status) . '</div>
+            </div>
+            <div class="wns-preview-meta-item">
+                <div class="wns-preview-meta-label">Scheduled Send</div>
+                <div class="wns-preview-meta-value">' . (isset($target) ? $target->format('M j, Y H:i') : 'Not calculated') . '</div>
+            </div>
+        </div>
+        <div class="wns-preview-email-content" style="padding: 30px 20px;">
+            ' . $email_content . '
+        </div>';
+        
+        wp_send_json_success(array(
+            'html' => $preview_html,
+            'subject' => $subject,
+            'recipients' => $recipients_count,
+            'wp_posts_count' => count($wp_posts),
+            'forum_activity_count' => $forum_activity_count,
+            'date_from' => $date_from_str,
+            'date_to' => $date_to_str,
+            'scheduled_send' => isset($target) ? $target->format('Y-m-d H:i:s') : null
+        ));
+        
+    } catch (Exception $e) {
+        error_log('[WNS Preview] Error: ' . $e->getMessage());
+        wp_send_json_error('Error generating preview: ' . $e->getMessage());
+    } catch (Error $e) {
+        error_log('[WNS Preview] Fatal error: ' . $e->getMessage());
+        wp_send_json_error('Fatal error generating preview. Please check your plugin configuration.');
+    }
+});
+
+// Function to build proper newsletter subject based on scheduled send date
+function wns_build_subject($target_date = null) {
+    if ($target_date && $target_date instanceof DateTime) {
+        $date_str = $target_date->format('F j, Y');
+    } else {
+        // Calculate the scheduled send date if not provided
+        $send_day = get_option('wns_send_day', 'monday');
+        $send_time = get_option('wns_send_time', '08:00');
+        $timezone = wp_timezone();
+        
+        try {
+            $target = new DateTime('this ' . $send_day, $timezone);
+            $time_parts = explode(':', $send_time);
+            $target->setTime((int)$time_parts[0], (int)$time_parts[1]);
+            
+            $now = new DateTime('now', $timezone);
+            if ($target < $now) {
+                $target->modify('+1 week');
+            }
+            
+            $date_str = $target->format('F j, Y');
+        } catch (Exception $e) {
+            // Fallback to next scheduled day
+            $date_str = date('F j, Y', strtotime('next ' . $send_day));
+        }
+    }
+    
+    return 'Weekly Newsletter - ' . $date_str;
+}
 
 // --- ENCRYPTION FUNCTIONS ---
 function wns_encrypt_password($password) {
@@ -157,19 +748,19 @@ function wns_generate_email_styles() {
     $meta_color = get_option('wns_email_meta_color', '#888888');
     
     return "
-body {background: {$bg_color}; font-family: {$font_family}; margin:0; padding:20px; color: {$text_color}; line-height: {$line_height};}
+body {background: {$bg_color}; font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};}
 .content {color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);}
 .email-header {background: {$header_color}; color: #fff; text-align: center; padding: {$content_padding}px;}
 .email-header h1 {margin: 0 !important; padding: 0; border: none;}
 h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom:0.2em; font-size:1.7em; margin-bottom:1em;}
-.section-title {color: {$text_color}; font-size:1.45em; margin-top:1.5em; margin-bottom:0.8em; font-weight:700;}
+.section-title {color: {$text_color}; font-size:1.45em; margin-top:1.5em; margin-bottom:0.8em; font-weight:700; margin-left: {$content_padding}px;}
 .intro {font-size: 1.25em; margin: 1.5em {$content_padding}px 1.2em; color: {$text_color};}
 .card {
     background: {$card_bg};
     border: 1px solid {$card_border};
     border-radius: {$card_radius}px;
     margin: 0 {$content_padding}px 1.5em;
-    padding: 0.9em 1em;
+    padding: {$content_padding}px;
     box-sizing: border-box;
 }
 .wp-posts, .forum-section {
@@ -217,17 +808,6 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
     font-weight: 600;
     color: {$text_color};
     margin-bottom: 0.15em;
-}
-.post-title a {
-    color: {$text_color} !important;
-    text-decoration: none !important;
-    display: block;
-    font-weight: inherit;
-    font-size: inherit;
-}
-.post-title a:hover {
-    color: {$accent_color} !important;
-    text-decoration: none !important;
 }
 .post-meta {
     color: {$meta_color};
@@ -327,7 +907,7 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
                 $excerpt = wns_format_quotes($excerpt_raw);
 
                 $message .= "<div class='card post-card'>";
-                $message .= "<div class='post-title'><a href='{$url}'>{$title}</a></div>";
+                $message .= "<div class='post-title'>{$title}</div>";
                 $message .= "<div class='post-meta'>{$date}</div>";
                 $message .= "<div class='post-excerpt'>{$excerpt}</div>";
                 $message .= "<div class='post-readmore'><a href='{$url}'>Read more on website...</a></div>";
@@ -352,7 +932,7 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
                     $body = wp_kses_post(wns_format_quotes($post->body));
                     $excerpt_html = wns_truncate_html_words($body, 40, $url);
                     $message .= "<div class='card forum-post'>";
-                    $message .= "<div class='post-title'><a href='{$url}'>".esc_html($post->title)."</a></div>";
+                    $message .= "<div class='post-title'>".esc_html($post->title)."</div>";
                     $message .= "<div class='post-meta'>{$author} &middot; {$postdate} {$posttime}</div>";
                     $message .= "<div class='post-excerpt'>{$excerpt_html}</div>";
                     $message .= "<div class='post-readmore'><a href='{$url}'>Read more on forum...</a></div>";
@@ -366,10 +946,45 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
     return $message;
 }
 
+// --- INLINE STYLE HELPER FUNCTION ---
+function wns_add_inline_styles($content) {
+    // Get design settings for inline styles
+    $header_color = get_option('wns_email_header_color', '#2c5aa0');
+    $accent_color = get_option('wns_email_accent_color', '#0073aa');
+    $text_color = get_option('wns_email_text_color', '#333333');
+    $bg_color = get_option('wns_email_background_color', '#f9f9f9');
+    $font_family = get_option('wns_email_font_family', 'Arial, sans-serif');
+    $card_bg = get_option('wns_email_card_bg_color', '#f8f8f8');
+    $card_border = get_option('wns_email_card_border_color', '#e5e5e5');
+    $content_padding = get_option('wns_email_content_padding', '20');
+    $card_radius = get_option('wns_email_card_radius', '7');
+    $line_height = get_option('wns_email_line_height', '1.5');
+    
+    // Replace class-based elements with inline styles for better email client compatibility
+    $replacements = [
+        "class='wp-posts'" => "class='wp-posts' style='margin-bottom: 2em; padding: 0 {$content_padding}px;'",
+        "class='forum-section'" => "class='forum-section' style='margin-bottom: 2em; padding: 0 {$content_padding}px;'",
+        "class='section-title'" => "class='section-title' style='color: {$text_color}; font-size: 1.45em; margin-top: 1.5em; margin-bottom: 0.8em; font-weight: 700; margin-left: {$content_padding}px;'",
+        "class='card post-card'" => "class='card post-card' style='background: {$card_bg}; border: 1px solid {$card_border}; border-radius: {$card_radius}px; margin: 0 {$content_padding}px 1.5em; padding: {$content_padding}px; box-sizing: border-box;'",
+        "class='card forum-post'" => "class='card forum-post' style='background: {$card_bg}; border: 1px solid {$card_border}; border-radius: {$card_radius}px; margin: 0 {$content_padding}px 1.5em; padding: {$content_padding}px; box-sizing: border-box;'",
+        "class='card'" => "class='card' style='background: {$card_bg}; border: 1px solid {$card_border}; border-radius: {$card_radius}px; margin: 0 {$content_padding}px 1.5em; padding: {$content_padding}px; box-sizing: border-box;'"
+    ];
+    
+    foreach ($replacements as $search => $replace) {
+        $content = str_replace($search, $replace, $content);
+    }
+    
+    return $content;
+}
+
 // --- EMAIL BUILDING ---
 function wns_build_email($summary, $count, $wp_posts = []) {
     // Use design intro text only - no fallback to old settings
     $intro = get_option('wns_email_intro_text', 'This week we have prepared {count} new posts and articles for you.');
+    // Ensure intro is a string before str_replace
+    if (!is_string($intro)) {
+        $intro = 'This week we have prepared {count} new posts and articles for you.';
+    }
     $intro = str_replace('{count}', $count, $intro);
     $include_wp = get_option('wns_include_wp', 1);
     $include_forum = get_option('wns_include_forum', 1);
@@ -406,7 +1021,7 @@ function wns_build_email($summary, $count, $wp_posts = []) {
         }
     }
 
-    $message = "<div class='email-header'>{$header_content}</div><div class='intro'><strong>".esc_html($intro)."</strong></div>";
+    $message = "<div class='email-header' style='background: {$header_color}; color: #fff; text-align: center; padding: {$content_padding}px;'>{$header_content}</div><div class='intro' style='font-size: 1.25em; margin: 1.5em {$content_padding}px 1.2em; color: {$text_color};'><strong>".esc_html($intro)."</strong></div>";
 
     // --- If no new posts ---
     if (
@@ -452,7 +1067,7 @@ function wns_build_email($summary, $count, $wp_posts = []) {
                 $excerpt = wns_format_quotes($excerpt_raw);
 
                 $message .= "<div class='card post-card'>";
-                $message .= "<div class='post-title'><a href='{$url}'>{$title}</a></div>";
+                $message .= "<div class='post-title'>{$title}</div>";
                 $message .= "<div class='post-meta'>{$date}</div>";
                 $message .= "<div class='post-excerpt'>{$excerpt}</div>";
                 $message .= "<div class='post-readmore'><a href='{$url}'>Read more on website...</a></div>";
@@ -477,7 +1092,7 @@ function wns_build_email($summary, $count, $wp_posts = []) {
                     $body = wp_kses_post(wns_format_quotes($post->body));
                     $excerpt_html = wns_truncate_html_words($body, 40, $url);
                     $message .= "<div class='card forum-post'>";
-                    $message .= "<div class='post-title'><a href='{$url}'>".esc_html($post->title)."</a></div>";
+                    $message .= "<div class='post-title'>".esc_html($post->title)."</div>";
                     $message .= "<div class='post-meta'>{$author} &middot; {$postdate} {$posttime}</div>";
                     $message .= "<div class='post-excerpt'>{$excerpt_html}</div>";
                     $message .= "<div class='post-readmore'><a href='{$url}'>Read more on forum...</a></div>";
@@ -490,11 +1105,31 @@ function wns_build_email($summary, $count, $wp_posts = []) {
 
     $html_header = "\n<!DOCTYPE html>\n<html>\n<head>\n<title>Weekly Newsletter</title>\n<meta charset='utf-8' />\n<style>
 " . wns_generate_email_styles() . "
-</style>\n</head>\n<body>\n<div class='content'>\n";
+</style>\n</head>\n<body style='background: {$bg_color}; font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};'>\n<div class='content' style='color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);'>\n";
+    
+    // Replace variables in HTML header with actual values
+    $html_header = str_replace([
+        '{$bg_color}', 
+        '{$font_family}', 
+        '{$content_padding}', 
+        '{$text_color}', 
+        '{$line_height}',
+        '{$card_radius}'
+    ], [
+        $bg_color, 
+        $font_family, 
+        $content_padding, 
+        $text_color, 
+        $line_height,
+        $card_radius
+    ], $html_header);
     // Add footer if configured
     if (!empty($footer_text)) {
         $message .= '<div class="email-footer">' . nl2br(esc_html($footer_text)) . '</div>';
     }
+    
+    // Apply inline styles for better email client compatibility
+    $message = wns_add_inline_styles($message);
     
     $html_footer = "</div></body></html>";
     return $html_header . $message . $html_footer;
@@ -655,6 +1290,10 @@ function wns_get_demo_author_name($userid) {
 function wns_build_demo_email() {
     $demo_data = wns_generate_demo_email_content();
     $intro = get_option('wns_email_intro_text', 'This week we have prepared {count} new posts and articles for you.');
+    // Ensure intro is a string before str_replace
+    if (!is_string($intro)) {
+        $intro = 'This week we have prepared {count} new posts and articles for you.';
+    }
     $count = count($demo_data['wp_posts']) + count($demo_data['forum_summary'][0]['threads'][0]['posts']) + count($demo_data['forum_summary'][1]['threads'][0]['posts']);
     $intro = str_replace('{count}', $count, $intro);
     
@@ -757,7 +1396,27 @@ function wns_build_demo_email() {
 
     $html_header = "<!DOCTYPE html>\n<html>\n<head>\n<title>Weekly Newsletter</title>\n<meta charset='utf-8' />\n<style>
 " . wns_generate_email_styles() . "
-</style>\n</head>\n<body>\n<div class='content'>\n";
+</style>\n</head>\n<body style='background: {$bg_color}; font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};'>\n<div class='content' style='color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);'>\n";
+    
+    // Replace variables in HTML header with actual values
+    $html_header = str_replace([
+        '{$bg_color}', 
+        '{$font_family}', 
+        '{$content_padding}', 
+        '{$text_color}', 
+        '{$line_height}',
+        '{$card_radius}'
+    ], [
+        $bg_color, 
+        $font_family, 
+        $content_padding, 
+        $text_color, 
+        $line_height,
+        $card_radius
+    ], $html_header);
+    
+    // Apply inline styles for better email client compatibility
+    $message = wns_add_inline_styles($message);
     
     $html_footer = "</div></body></html>";
     return $html_header . $message . $html_footer;
@@ -775,10 +1434,35 @@ function wns_send_newsletter($manual_override = false) {
     $type = get_option('wns_date_range_type', 'week');
     $timezone = wp_timezone();
     if ($type === 'week') {
-        $now = new DateTime('now', $timezone);
-        $date_to = $now->format('Y-m-d');
-        $now->modify('-7 days');
-        $date_from = $now->format('Y-m-d');
+        // Calculate based on scheduled send time (consistent with preview)
+        $send_day = get_option('wns_send_day', 'monday');
+        $send_time = get_option('wns_send_time', '08:00');
+        
+        try {
+            $target = new DateTime('this ' . $send_day, $timezone);
+            $time_parts = explode(':', $send_time);
+            $target->setTime((int)$time_parts[0], (int)$time_parts[1]);
+            
+            $now = new DateTime('now', $timezone);
+            if ($target < $now) {
+                $target->modify('+1 week');
+            }
+            
+            // Date range should be 7 days before the scheduled send
+            $date_to_obj = clone $target;
+            $date_to_obj->modify('-1 day'); // Day before send
+            $date_from_obj = clone $date_to_obj;
+            $date_from_obj->modify('-6 days'); // 7 days total (including end date)
+            
+            $date_from = $date_from_obj->format('Y-m-d');
+            $date_to = $date_to_obj->format('Y-m-d');
+            
+        } catch (Exception $e) {
+            // Fallback to 7 days before scheduled send time if calculation fails
+            $fallback_end = date('Y-m-d', strtotime('next ' . $send_day . ' -1 day'));
+            $date_to = $fallback_end;
+            $date_from = date('Y-m-d', strtotime($fallback_end . ' -6 days'));
+        }
     } elseif ($type === 'custom') {
         $date_from = get_option('wns_date_from');
         $date_to = get_option('wns_date_to');
@@ -799,7 +1483,6 @@ function wns_send_newsletter($manual_override = false) {
     }
     $headers = [
         'Content-Type: text/html; charset=UTF-8',
-        'Reply-To: noreply@sarap.sk' 
     ];
     $recipients = wns_get_user_emails();
     $log = '';
@@ -878,7 +1561,7 @@ function wns_send_email_smtp($to, $subject, $message, $headers = []) {
 
 // --- SETTINGS PAGE ---
 function wns_register_settings() {
-    add_option('wns_subject', 'SARAP Fórum - týždenný sumár');
+    add_option('wns_subject', 'Weekly Newsletter');
     // Only allow subscriber and administrator
     add_option('wns_roles', ['subscriber', 'administrator']);
     add_option('wns_enabled', 1);
@@ -889,7 +1572,7 @@ function wns_register_settings() {
     add_option('wns_send_time', '08:00'); // new: time of day
     add_option('wns_include_forum', 1); // new: include forum posts
     add_option('wns_include_wp', 1); // new: include wp posts
-    add_option('wns_from_name', 'Fórum & Novinky'); // new: from name for newsletter only
+    add_option('wns_from_name', 'Forum & News'); // new: from name for newsletter only
     
     // Mail configuration options
     add_option('wns_mail_type', 'wordpress'); // wordpress or smtp
@@ -961,11 +1644,17 @@ function wns_sanitize_smtp_password($password) {
 add_action('admin_init', 'wns_register_settings');
 
 function wns_set_newsletter_from_name($name) {
-    $custom_name = get_option('wns_from_name', 'Fórum & Novinky');
+    $custom_name = get_option('wns_from_name', 'Forum & News');
     return $custom_name;
 }
 
 function wns_settings_page() {
+    // Check if license needs to be accepted and show license interface
+    if (!get_option('wns_license_accepted')) {
+        wns_show_license_interface();
+        return;
+    }
+    
     $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'settings';
     
     // Handle notifications
@@ -992,7 +1681,7 @@ function wns_settings_page() {
     $include_forum = get_option('wns_include_forum', 1);
     $include_wp = get_option('wns_include_wp', 1);
     $roles = get_option('wns_roles', ['subscriber', 'administrator']);
-    $from_name = get_option('wns_from_name', 'Fórum & Novinky'); // new
+    $from_name = get_option('wns_from_name', 'Forum & News'); // new
     if (!is_array($roles)) {
         $roles = [$roles];
     }
@@ -1002,7 +1691,7 @@ function wns_settings_page() {
     .wns-admin-wrapper {
         background: #fefefe;
         min-height: 100vh;
-        margin: -20px -20px 0 -2px; /* Expand beyond WordPress admin margins */
+        margin: -20px -20px 0 0; /* Expand beyond WordPress admin margins */
     }
     
     .wns-admin-header {
@@ -1537,6 +2226,10 @@ function wns_settings_page() {
                    class="wns-tab-button <?php echo $current_tab === 'design' ? 'active' : ''; ?>">
                     Email Design
                 </a>
+                <a href="<?php echo admin_url('admin.php?page=wns-main&tab=preview'); ?>" 
+                   class="wns-tab-button <?php echo $current_tab === 'preview' ? 'active' : ''; ?>">
+                    Next Email Preview
+                </a>
             </div>
         </div>
         
@@ -1551,6 +2244,20 @@ function wns_settings_page() {
                 </span>
                 <span class="wns-notification-message"><?php echo esc_html($notification); ?></span>
             </div>
+            <script>
+                // Clean URL to prevent notification from showing again on refresh
+                if (window.history.replaceState) {
+                    let url = window.location.href;
+                    url = url.replace(/[?&]wns_sent=1/, '');
+                    url = url.replace(/[?&]test_sent=1/, '');
+                    url = url.replace(/[?&]test_failed=1/, '');
+                    // Clean up any remaining query parameters if URL ends with ? or &
+                    url = url.replace(/[?&]$/, '');
+                    if (url !== window.location.href) {
+                        window.history.replaceState(null, null, url);
+                    }
+                }
+            </script>
         <?php endif; ?>
         
         <div class="wns-admin-content">
@@ -1673,6 +2380,14 @@ function wns_settings_page() {
                                 }
                                 ?>
                             </div>
+                            <div style="margin-top: 10px;">
+                                <a href="<?php echo admin_url('admin.php?page=wns-main&tab=preview'); ?>" class="button button-secondary">
+                                    📧 Preview Next Email
+                                </a>
+                                <span style="color: #666; font-size: 13px; margin-left: 10px;">
+                                    See exactly how your next newsletter will look
+                                </span>
+                            </div>
                         </div>
                         
                         <?php submit_button('Save Settings', 'primary large wns-button'); ?>
@@ -1791,10 +2506,35 @@ function wns_settings_page() {
                                 $date_from = null;
                                 $date_to = null;
                                 if ($type === 'week') {
-                                    $now = new DateTime('now', $timezone);
-                                    $date_to = $now->format('Y-m-d');
-                                    $now->modify('-7 days');
-                                    $date_from = $now->format('Y-m-d');
+                                    // Calculate based on scheduled send time (consistent with preview)
+                                    $send_day = get_option('wns_send_day', 'monday');
+                                    $send_time = get_option('wns_send_time', '08:00');
+                                    
+                                    try {
+                                        $target = new DateTime('this ' . $send_day, $timezone);
+                                        $time_parts = explode(':', $send_time);
+                                        $target->setTime((int)$time_parts[0], (int)$time_parts[1]);
+                                        
+                                        $now = new DateTime('now', $timezone);
+                                        if ($target < $now) {
+                                            $target->modify('+1 week');
+                                        }
+                                        
+                                        // Date range should be 7 days before the scheduled send
+                                        $date_to_obj = clone $target;
+                                        $date_to_obj->modify('-1 day'); // Day before send
+                                        $date_from_obj = clone $date_to_obj;
+                                        $date_from_obj->modify('-6 days'); // 7 days total (including end date)
+                                        
+                                        $date_from = $date_from_obj->format('Y-m-d');
+                                        $date_to = $date_to_obj->format('Y-m-d');
+                                        
+                                    } catch (Exception $e) {
+                                        // Fallback to 7 days before scheduled send time if calculation fails
+                                        $fallback_end = date('Y-m-d', strtotime('next ' . $send_day . ' -1 day'));
+                                        $date_to = $fallback_end;
+                                        $date_from = date('Y-m-d', strtotime($fallback_end . ' -6 days'));
+                                    }
                                 } elseif ($type === 'custom') {
                                     $date_from = get_option('wns_date_from');
                                     $date_to = get_option('wns_date_to');
@@ -1816,10 +2556,35 @@ function wns_settings_page() {
                                 $date_from = null;
                                 $date_to = null;
                                 if ($type === 'week') {
-                                    $now = new DateTime('now', $timezone);
-                                    $date_to = $now->format('Y-m-d');
-                                    $now->modify('-7 days');
-                                    $date_from = $now->format('Y-m-d');
+                                    // Calculate based on scheduled send time (consistent with preview)
+                                    $send_day = get_option('wns_send_day', 'monday');
+                                    $send_time = get_option('wns_send_time', '08:00');
+                                    
+                                    try {
+                                        $target = new DateTime('this ' . $send_day, $timezone);
+                                        $time_parts = explode(':', $send_time);
+                                        $target->setTime((int)$time_parts[0], (int)$time_parts[1]);
+                                        
+                                        $now = new DateTime('now', $timezone);
+                                        if ($target < $now) {
+                                            $target->modify('+1 week');
+                                        }
+                                        
+                                        // Date range should be 7 days before the scheduled send
+                                        $date_to_obj = clone $target;
+                                        $date_to_obj->modify('-1 day'); // Day before send
+                                        $date_from_obj = clone $date_to_obj;
+                                        $date_from_obj->modify('-6 days'); // 7 days total (including end date)
+                                        
+                                        $date_from = $date_from_obj->format('Y-m-d');
+                                        $date_to = $date_to_obj->format('Y-m-d');
+                                        
+                                    } catch (Exception $e) {
+                                        // Fallback to 7 days before scheduled send time if calculation fails
+                                        $fallback_end = date('Y-m-d', strtotime('next ' . $send_day . ' -1 day'));
+                                        $date_to = $fallback_end;
+                                        $date_from = date('Y-m-d', strtotime($fallback_end . ' -6 days'));
+                                    }
                                 } elseif ($type === 'custom') {
                                     $date_from = get_option('wns_date_from');
                                     $date_to = get_option('wns_date_to');
@@ -1849,9 +2614,9 @@ body {background: ${settings.backgroundColor}; font-family: ${settings.fontFamil
 .email-header {background: ${settings.headerColor}; color: #fff; text-align: center; padding: ${settings.contentPadding}px;}
 .email-header h1 {margin: 0 !important; padding: 0; border: none;}
 h1 {color: ${settings.textColor}; border-bottom:2px solid ${settings.cardBorderColor}; padding-bottom:0.2em; font-size:1.7em; margin-bottom:1em;}
-.section-title {color: ${settings.textColor}; font-size:1.45em; margin-top:1.5em; margin-bottom:0.8em; font-weight:700;}
+.section-title {color: ${settings.textColor}; font-size:1.45em; margin-top:1.5em; margin-bottom:0.8em; font-weight:700; margin-left: ${settings.contentPadding}px;}
 .intro {font-size: 1.25em; margin: 1.5em ${settings.contentPadding}px 1.2em; color: ${settings.textColor};}
-.card {background: ${settings.cardBgColor}; border: 1px solid ${settings.cardBorderColor}; border-radius: ${settings.cardRadius}px; margin: 0 ${settings.contentPadding}px 1.5em; padding: 0.9em 1em; box-sizing: border-box;}
+.card {background: ${settings.cardBgColor}; border: 1px solid ${settings.cardBorderColor}; border-radius: ${settings.cardRadius}px; margin: 0 ${settings.contentPadding}px 1.5em; padding: ${settings.contentPadding}px; box-sizing: border-box;}
 .wp-posts, .forum-section {margin-bottom: 2em; padding: 0 ${settings.contentPadding}px;}
 .forum-header, .thread-header {display: flex; align-items: center; margin-top: 1.2em; margin-bottom: 0.7em;}
 .category-label {color: #fff; background: ${settings.headerColor}; display: inline-block; padding: 0.18em 0.7em; border-radius: 6px; font-size: 1em; font-weight: 600; margin-right: 0.6em;}
@@ -2134,14 +2899,14 @@ body {background: ${values.backgroundColor}; font-family: ${values.fontFamily}; 
 .email-header {background: ${values.headerColor}; color: #fff; text-align: center; padding: ${values.contentPadding}px;}
 .email-header h1 {margin: 0 !important; padding: 0; border: none;}
 h1 {color: ${values.textColor}; border-bottom:2px solid ${values.cardBorderColor}; padding-bottom:0.2em; font-size:1.7em; margin-bottom:1em;}
-.section-title {color: ${values.textColor}; font-size:1.45em; margin-top:1.5em; margin-bottom:0.8em; font-weight:700;}
+.section-title {color: ${values.textColor}; font-size:1.45em; margin-top:1.5em; margin-bottom:0.8em; font-weight:700; margin-left: ${values.contentPadding}px;}
 .intro {font-size: 1.25em; margin: 1.5em ${values.contentPadding}px 1.2em; color: ${values.textColor};}
 .card {
     background: ${values.cardBgColor};
     border: 1px solid ${values.cardBorderColor};
     border-radius: ${values.cardRadius}px;
     margin: 0 ${values.contentPadding}px 1.5em;
-    padding: 0.9em 1em;
+    padding: ${values.contentPadding}px;
     box-sizing: border-box;
 }
 .wp-posts, .forum-section {
@@ -2426,6 +3191,359 @@ ${footerHTML}
                     });
                 });
                 </script>
+            </div>
+            
+            <!-- Preview Tab -->
+            <div class="wns-tab-content <?php echo $current_tab === 'preview' ? 'active' : ''; ?>">
+                <div class="wns-section">
+                    <div class="wns-section-title">📧 Next Email Preview</div>
+                    <div class="wns-form-help" style="margin-bottom: 20px;">
+                        This preview shows exactly how your next scheduled newsletter will look with current content from the last 7 days.
+                    </div>
+                    
+                    <div class="wns-preview-controls-section">
+                        <button type="button" id="wns-refresh-preview" class="button button-secondary">
+                            🔄 Refresh Preview
+                        </button>
+                        <span class="wns-preview-status" style="margin-left: 15px; color: #666;">Loading preview...</span>
+                    </div>
+                    
+                    <div id="wns-email-preview-content" class="wns-email-preview-content">
+                        <?php if ($current_tab === 'preview'): ?>
+                            <?php
+                            // Auto-generate preview when tab is active
+                            try {
+                                // Calculate date range based on scheduled send time (not today)
+                                $send_day = get_option('wns_send_day', 'monday');
+                                $send_time = get_option('wns_send_time', '08:00');
+                                $timezone = wp_timezone();
+                                $next_send = new DateTime('now', $timezone);
+                                
+                                // Calculate next scheduled send date
+                                try {
+                                    $target = new DateTime('this ' . $send_day, $timezone);
+                                    $time_parts = explode(':', $send_time);
+                                    $target->setTime((int)$time_parts[0], (int)$time_parts[1]);
+                                    
+                                    if ($target < $next_send) {
+                                        $target->modify('+1 week');
+                                    }
+                                    
+                                    // Date range should be 7 days before the scheduled send
+                                    $date_to = clone $target;
+                                    $date_to->modify('-1 day'); // Day before send
+                                    $date_from = clone $date_to;
+                                    $date_from->modify('-6 days'); // 7 days total (including end date)
+                                    
+                                    $date_from_str = $date_from->format('Y-m-d');
+                                    $date_to_str = $date_to->format('Y-m-d');
+                                    
+                                } catch (Exception $e) {
+                                    // Fallback to 7 days before scheduled send time if date calculation fails
+                                    $fallback_end = date('Y-m-d', strtotime('next ' . $send_day . ' -1 day'));
+                                    $date_to_str = $fallback_end;
+                                    $date_from_str = date('Y-m-d', strtotime($fallback_end . ' -6 days'));
+                                }
+                                
+                                // Get settings for what to include
+                                $include_wp = get_option('wns_include_wp', 1);
+                                $include_forum = get_option('wns_include_forum', 1);
+                                
+                                // Get WordPress posts for preview - with error handling
+                                $wp_posts = [];
+                                if ($include_wp) {
+                                    try {
+                                        $wp_posts_result = wns_get_wp_posts_summary($date_from_str, $date_to_str);
+                                        $wp_posts = is_array($wp_posts_result) ? $wp_posts_result : [];
+                                    } catch (Exception $e) {
+                                        error_log('[WNS Preview] WordPress posts error: ' . $e->getMessage());
+                                    }
+                                }
+                                
+                                // Get wpForo posts for preview - with error handling
+                                $wpforo_summary = [];
+                                if ($include_forum) {
+                                    try {
+                                        if (function_exists('wns_get_wpforo_summary')) {
+                                            $wpforo_result = wns_get_wpforo_summary($date_from_str, $date_to_str);
+                                            $wpforo_summary = is_array($wpforo_result) ? $wpforo_result : [];
+                                        }
+                                    } catch (Exception $e) {
+                                        error_log('[WNS Preview] wpForo posts error: ' . $e->getMessage());
+                                    }
+                                }
+                                
+                                // Generate email content safely
+                                $subject = '';
+                                $email_content = '';
+                                try {
+                                    // Use the same subject logic as the actual sending function
+                                    $subject = get_option('wns_subject', 'Weekly Newsletter');
+                                    // Add date range to subject for uniqueness (matching actual send logic)
+                                    if ($date_from_str && $date_to_str) {
+                                        $subject .= " (" . date('d.m.Y', strtotime($date_from_str)) . " - " . date('d.m.Y', strtotime($date_to_str)) . ")";
+                                    }
+                                    
+                                    if (function_exists('wns_build_email')) {
+                                        // Count total items for email building
+                                        $forum_post_count = 0;
+                                        foreach ($wpforo_summary as $forum_data) {
+                                            if (isset($forum_data['threads']) && is_array($forum_data['threads'])) {
+                                                foreach ($forum_data['threads'] as $thread_data) {
+                                                    if (isset($thread_data['posts']) && is_array($thread_data['posts'])) {
+                                                        $forum_post_count += count($thread_data['posts']);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        $total_count = count($wp_posts) + $forum_post_count;
+                                        
+                                        $email_content = wns_build_email($wpforo_summary, $total_count, $wp_posts);
+                                    } else {
+                                        $email_content = '<p>Email builder function not available. Please check plugin configuration.</p>';
+                                    }
+                                } catch (Exception $e) {
+                                    error_log('[WNS Preview] Email build error: ' . $e->getMessage());
+                                    $email_content = '<p>Error building email content: ' . esc_html($e->getMessage()) . '</p>';
+                                }
+                                
+                                // Get recipient count safely
+                                $recipients_count = 0;
+                                try {
+                                    if (function_exists('wns_get_user_emails')) {
+                                        $user_emails = wns_get_user_emails();
+                                        $recipients_count = is_array($user_emails) ? count($user_emails) : 0;
+                                    }
+                                } catch (Exception $e) {
+                                    error_log('[WNS Preview] Recipients error: ' . $e->getMessage());
+                                }
+                                
+                                // Count forum activities safely
+                                $forum_activity_count = 0;
+                                try {
+                                    foreach ($wpforo_summary as $forum_data) {
+                                        if (isset($forum_data['threads']) && is_array($forum_data['threads'])) {
+                                            foreach ($forum_data['threads'] as $thread_data) {
+                                                if (isset($thread_data['posts']) && is_array($thread_data['posts'])) {
+                                                    $forum_activity_count += count($thread_data['posts']);
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (Exception $e) {
+                                    error_log('[WNS Preview] Forum activity count error: ' . $e->getMessage());
+                                }
+                                
+                                // Create content status messages
+                                $wp_status = '';
+                                $forum_status = '';
+                                
+                                if (!$include_wp) {
+                                    $wp_status = ' (WordPress posts disabled in settings)';
+                                } elseif (empty($wp_posts)) {
+                                    $wp_status = ' (no new posts in this period)';
+                                }
+                                
+                                if (!$include_forum) {
+                                    $forum_status = ' (Forum posts disabled in settings)';
+                                } elseif (empty($wpforo_summary)) {
+                                    $forum_status = ' (no forum activity in this period)';
+                                }
+                                ?>
+                                
+                                <div class="wns-preview-meta">
+                                    <div class="wns-preview-meta-item">
+                                        <div class="wns-preview-meta-label">Subject Line</div>
+                                        <div class="wns-preview-meta-value"><?php echo esc_html($subject); ?></div>
+                                    </div>
+                                    <div class="wns-preview-meta-item">
+                                        <div class="wns-preview-meta-label">Recipients</div>
+                                        <div class="wns-preview-meta-value"><?php echo $recipients_count; ?> users</div>
+                                    </div>
+                                    <div class="wns-preview-meta-item">
+                                        <div class="wns-preview-meta-label">Content Period</div>
+                                        <div class="wns-preview-meta-value"><?php echo date('M j', strtotime($date_from_str)) . ' - ' . date('M j, Y', strtotime($date_to_str)); ?></div>
+                                    </div>
+                                    <div class="wns-preview-meta-item">
+                                        <div class="wns-preview-meta-label">WordPress Posts</div>
+                                        <div class="wns-preview-meta-value"><?php echo count($wp_posts); ?> posts<?php echo $wp_status; ?></div>
+                                    </div>
+                                    <div class="wns-preview-meta-item">
+                                        <div class="wns-preview-meta-label">Forum Activities</div>
+                                        <div class="wns-preview-meta-value"><?php echo $forum_activity_count; ?> posts in <?php echo count($wpforo_summary); ?> forums<?php echo $forum_status; ?></div>
+                                    </div>
+                                    <div class="wns-preview-meta-item">
+                                        <div class="wns-preview-meta-label">Scheduled Send</div>
+                                        <div class="wns-preview-meta-value"><?php echo isset($target) ? $target->format('M j, Y H:i') : 'Not calculated'; ?></div>
+                                    </div>
+                                </div>
+                                <div class="wns-preview-email-content">
+                                    <?php echo $email_content; ?>
+                                </div>
+                                
+                                <?php
+                            } catch (Exception $e) {
+                                echo '<div class="wns-preview-error">❌ Error generating preview: ' . esc_html($e->getMessage()) . '</div>';
+                                error_log('[WNS Preview] General error: ' . $e->getMessage());
+                            } catch (Error $e) {
+                                echo '<div class="wns-preview-error">❌ Fatal error: ' . esc_html($e->getMessage()) . '. Please check your plugin configuration.</div>';
+                                error_log('[WNS Preview] Fatal error: ' . $e->getMessage());
+                            }
+                            ?>
+                        <?php else: ?>
+                            <div class="wns-preview-loading">
+                                <div class="spinner"></div>
+                                Preview will load when tab is selected...
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                
+                <style>
+                .wns-preview-controls-section {
+                    margin-bottom: 20px;
+                    padding: 15px;
+                    background: #f8f9fa;
+                    border-radius: 6px;
+                    border: 1px solid #dee2e6;
+                }
+                .wns-email-preview-content {
+                    border: 1px solid #ccc;
+                    border-radius: 6px;
+                    background: #fff;
+                    overflow: hidden;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                }
+                .wns-preview-loading {
+                    text-align: center;
+                    padding: 40px 20px;
+                    color: #666;
+                }
+                .wns-preview-loading .spinner {
+                    display: inline-block;
+                    width: 20px;
+                    height: 20px;
+                    border: 2px solid #f3f3f3;
+                    border-top: 2px solid #2271b1;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                    margin-right: 10px;
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                .wns-preview-meta {
+                    background: linear-gradient(135deg, #333333 0%, #1a1a1a 100%);
+                    color: #fff;
+                    padding: 25px 30px;
+                    font-size: 13px;
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 15px;
+                }
+                .wns-preview-meta-item {
+                    display: flex;
+                    flex-direction: column;
+                }
+                .wns-preview-meta-label {
+                    font-weight: 600;
+                    margin-bottom: 2px;
+                    opacity: 0.9;
+                }
+                .wns-preview-meta-value {
+                    font-size: 14px;
+                }
+                .wns-preview-email-content {
+                    max-height: 600px;
+                    overflow-y: auto;
+                    padding: 30px 20px;
+                }
+                .wns-preview-error {
+                    background: #f8d7da;
+                    color: #721c24;
+                    padding: 15px 20px;
+                    border-left: 4px solid #dc3545;
+                }
+                </style>
+                
+                <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const refreshBtn = document.getElementById('wns-refresh-preview');
+                    const previewContent = document.getElementById('wns-email-preview-content');
+                    const previewStatus = document.querySelector('.wns-preview-status');
+                    
+                    // Update status on load
+                    if (previewContent && previewContent.querySelector('.wns-preview-meta')) {
+                        previewStatus.textContent = 'Preview loaded successfully';
+                        previewStatus.style.color = '#28a745';
+                    } else if (previewContent && previewContent.querySelector('.wns-preview-error')) {
+                        previewStatus.textContent = 'Error in preview';
+                        previewStatus.style.color = '#dc3545';
+                    }
+                    
+                    function refreshPreview() {
+                        if (!refreshBtn || !previewContent) return;
+                        
+                        refreshBtn.disabled = true;
+                        refreshBtn.textContent = '⏳ Refreshing...';
+                        previewStatus.textContent = 'Refreshing preview...';
+                        previewStatus.style.color = '#666';
+                        
+                        previewContent.innerHTML = '<div class="wns-preview-loading"><div class="spinner"></div>Refreshing your email preview...</div>';
+                        
+                        // AJAX request to refresh preview
+                        fetch(ajaxurl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: new URLSearchParams({
+                                action: 'wns_generate_email_preview',
+                                nonce: '<?php echo wp_create_nonce('wns_preview_nonce'); ?>'
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                previewContent.innerHTML = data.data.html;
+                                previewStatus.textContent = 'Preview refreshed successfully';
+                                previewStatus.style.color = '#28a745';
+                            } else {
+                                previewContent.innerHTML = '<div class="wns-preview-error">❌ Error: ' + data.data + '</div>';
+                                previewStatus.textContent = 'Error refreshing preview';
+                                previewStatus.style.color = '#dc3545';
+                            }
+                        })
+                        .catch(error => {
+                            previewContent.innerHTML = '<div class="wns-preview-error">❌ Network error: Could not refresh preview</div>';
+                            previewStatus.textContent = 'Network error';
+                            previewStatus.style.color = '#dc3545';
+                        })
+                        .finally(() => {
+                            refreshBtn.disabled = false;
+                            refreshBtn.textContent = '� Refresh Preview';
+                        });
+                    }
+                    
+                    if (refreshBtn) {
+                        refreshBtn.addEventListener('click', refreshPreview);
+                    }
+                });
+                </script>
+            </div>
+        </div>
+        
+        <!-- Contact Footer -->
+        <div style="border-top: 1px solid #e8e8e8; padding: 24px 80px; background: #f8f8f8; color: #6a6a6a; font-size: 13px; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    Weekly Newsletter Sender v2.0 by <strong>Marep</strong>
+                </div>
+                <div>
+                    Need support? Contact: <a href="mailto:support@marep.sk" style="color: #4a4a4a; text-decoration: none;">support@marep.sk</a> | 
+                    <a href="https://marep.sk" target="_blank" style="color: #4a4a4a; text-decoration: none;">marep.sk</a>
+                </div>
             </div>
         </div>
     </div>
