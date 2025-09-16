@@ -1449,15 +1449,15 @@ function wns_settings_page() {
     $notification = '';
     $notification_type = '';
     if (isset($_GET['wns_sent']) && $_GET['wns_sent'] == '1') {
-        $notification = 'Newsletter sent manually!';
+        $notification = wns_t('newsletter_sent_manually');
         $notification_type = 'success';
     }
     if (isset($_GET['test_sent']) && $_GET['test_sent'] == '1') {
-        $notification = 'Test email sent successfully!';
+        $notification = wns_t('test_email_sent_success');
         $notification_type = 'success';
     }
     if (isset($_GET['test_failed']) && $_GET['test_failed'] == '1') {
-        $notification = 'Test email failed to send. Please check your configuration.';
+        $notification = wns_t('test_email_send_failed');
         $notification_type = 'error';
     }
     
@@ -2037,21 +2037,22 @@ function wns_settings_page() {
                 </span>
                 <span class="wns-notification-message"><?php echo esc_html($notification); ?></span>
             </div>
-            <script>
-                // Clean URL to prevent notification from showing again on refresh
-                if (window.history.replaceState) {
-                    let url = window.location.href;
-                    url = url.replace(/[?&]wns_sent=1/, '');
-                    url = url.replace(/[?&]test_sent=1/, '');
-                    url = url.replace(/[?&]test_failed=1/, '');
-                    // Clean up any remaining query parameters if URL ends with ? or &
-                    url = url.replace(/[?&]$/, '');
-                    if (url !== window.location.href) {
-                        window.history.replaceState(null, null, url);
-                    }
-                }
-            </script>
         <?php endif; ?>
+        
+        <script>
+            // Clean URL to prevent notification from showing again on refresh
+            if (window.history.replaceState) {
+                let url = window.location.href;
+                url = url.replace(/[?&]wns_sent=1/, '');
+                url = url.replace(/[?&]test_sent=1/, '');
+                url = url.replace(/[?&]test_failed=1/, '');
+                // Clean up any remaining query parameters if URL ends with ? or &
+                url = url.replace(/[?&]$/, '');
+                if (url !== window.location.href) {
+                    window.history.replaceState(null, null, url);
+                }
+            }
+        </script>
         
         <!-- Language Selection Section -->
         <div class="wns-language-section">

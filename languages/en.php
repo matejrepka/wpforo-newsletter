@@ -265,5 +265,10 @@ return [
     'footer_text_help' => 'Custom footer text to appear at the bottom of your newsletter.',
     'footer_text_placeholder' => 'Footer text for your newsletter...',
     'save_design_settings' => 'Save Design Settings',
-    'live_preview' => 'Live Preview'
+    'live_preview' => 'Live Preview',
+    
+    // Notification messages
+    'newsletter_sent_manually' => 'Newsletter sent manually!',
+    'test_email_sent_success' => 'Test email sent successfully!',
+    'test_email_send_failed' => 'Test email failed to send. Please check your configuration.'
 ];

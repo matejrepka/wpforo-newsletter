@@ -265,5 +265,10 @@ return [
     'footer_text_help' => 'Vlastný text pätičky na zobrazenie v spodnej časti vášho newslettera.',
     'footer_text_placeholder' => 'Text pätičky pre váš newsletter...',
     'save_design_settings' => 'Uložiť nastavenia dizajnu',
-    'live_preview' => 'Živý náhľad'
+    'live_preview' => 'Živý náhľad',
+    
+    // Notifikačné správy
+    'newsletter_sent_manually' => 'Newsletter odoslaný manuálne!',
+    'test_email_sent_success' => 'Testovací email úspešne odoslaný!',
+    'test_email_send_failed' => 'Odoslanie testovacieho emailu zlyhalo. Skontrolujte svoje nastavenia.'
 ];
