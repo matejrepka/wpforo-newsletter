@@ -42,6 +42,82 @@ if (!defined('WNS_PLUGIN_FILE')) {
     define('WNS_PLUGIN_FILE', __FILE__);
 }
 
+// Language system
+$wns_translations = array();
+
+/**
+ * Load language translation file
+ */
+function wns_load_translations($language = 'en') {
+    global $wns_translations;
+    
+    $language_file = dirname(WNS_PLUGIN_FILE) . '/languages/' . $language . '.php';
+    
+    if (file_exists($language_file)) {
+        $wns_translations = include $language_file;
+        
+        // Debug logging
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log("WNS: Loaded translations from: $language_file");
+            error_log("WNS: Translations count: " . count($wns_translations));
+        }
+    } else {
+        // Fallback to English if requested language not found
+        $fallback_file = dirname(WNS_PLUGIN_FILE) . '/languages/en.php';
+        if (file_exists($fallback_file)) {
+            $wns_translations = include $fallback_file;
+            
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log("WNS: Language file $language_file not found, using fallback: $fallback_file");
+            }
+        } else {
+            $wns_translations = [];
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log("WNS: No translation files found!");
+            }
+        }
+    }
+}
+
+/**
+ * Get translated string
+ */
+function wns_t($key, $default = '') {
+    global $wns_translations;
+    
+    if (empty($wns_translations)) {
+        $language = get_option('wns_language', 'en');
+        wns_load_translations($language);
+    }
+    
+    $result = isset($wns_translations[$key]) ? $wns_translations[$key] : ($default ? $default : $key);
+    
+    // Debug info (can be removed in production)
+    if (!isset($wns_translations[$key]) && defined('WP_DEBUG') && WP_DEBUG) {
+        error_log("WNS Translation missing: $key");
+    }
+    
+    return $result;
+}
+
+/**
+ * Echo translated string
+ */
+function wns_te($key, $default = '') {
+    echo wns_t($key, $default);
+}
+
+// Load translations on plugin init and when language is updated
+add_action('init', function() {
+    $language = get_option('wns_language', 'en');
+    wns_load_translations($language);
+});
+
+// Reload translations when language setting is updated
+add_action('update_option_wns_language', function($old_value, $value, $option_name) {
+    wns_load_translations($value);
+}, 10, 3);
+
 // Initialize the plugin
 
 // Activation hook - simple activation without license enforcement
@@ -57,8 +133,8 @@ add_action('admin_notices', function() {
         delete_transient('wns_activation_notice');
         ?>
         <div class="notice notice-info is-dismissible" style="border-left-color: #2c5aa0;">
-            <p><strong>Weekly Newsletter Sender Activated!</strong></p>
-            <p>You can now <a href="<?php echo admin_url('admin.php?page=wns-main'); ?>" style="font-weight: 600;">configure your newsletter settings</a> and start sending newsletters.</p>
+            <p><strong><?php wns_te('plugin_activated'); ?></strong></p>
+            <p><?php printf(wns_t('activation_config_message'), admin_url('admin.php?page=wns-main')); ?></p>
         </div>
         <?php
     }
@@ -68,8 +144,23 @@ add_action('admin_notices', function() {
 add_action('wp_ajax_wns_generate_email_preview', function() {
     check_ajax_referer('wns_preview_nonce', 'nonce');
     
+    // Force fresh translation loading for AJAX context
+    global $wns_translations;
+    $wns_translations = null; // Clear any cached translations
+    $language = get_option('wns_language', 'en');
+    wns_load_translations($language);
+    
+    // Debug logging
+    if (defined('WP_DEBUG') && WP_DEBUG) {
+        error_log("WNS Preview: Language setting is: $language");
+        error_log("WNS Preview: Translations loaded: " . (!empty($wns_translations) ? 'yes' : 'no'));
+        if (!empty($wns_translations)) {
+            error_log("WNS Preview: Sample translation for 'subject_line': " . (isset($wns_translations['subject_line']) ? $wns_translations['subject_line'] : 'not found'));
+        }
+    }
+    
     if (!current_user_can('manage_options')) {
-        wp_send_json_error('Insufficient permissions');
+        wp_send_json_error(wns_t('insufficient_permissions'));
         return;
     }
     
@@ -139,7 +230,7 @@ add_action('wp_ajax_wns_generate_email_preview', function() {
         $email_content = '';
         try {
             // Use the same subject logic as the actual sending function
-            $subject = get_option('wns_subject', 'Weekly Newsletter');
+            $subject = get_option('wns_subject', wns_t('default_subject'));
             // Add date range to subject for uniqueness (matching actual send logic)
             if ($date_from_str && $date_to_str) {
                 $subject .= " (" . date('d.m.Y', strtotime($date_from_str)) . " - " . date('d.m.Y', strtotime($date_to_str)) . ")";
@@ -215,28 +306,28 @@ add_action('wp_ajax_wns_generate_email_preview', function() {
         $preview_html = '
         <div class="wns-preview-meta">
             <div class="wns-preview-meta-item">
-                <div class="wns-preview-meta-label">Subject Line</div>
+                <div class="wns-preview-meta-label">' . wns_t('subject_line') . '</div>
                 <div class="wns-preview-meta-value">' . esc_html($subject) . '</div>
             </div>
             <div class="wns-preview-meta-item">
-                <div class="wns-preview-meta-label">Recipients</div>
-                <div class="wns-preview-meta-value">' . $recipients_count . ' users</div>
+                <div class="wns-preview-meta-label">' . wns_t('recipients') . '</div>
+                <div class="wns-preview-meta-value">' . $recipients_count . ' ' . wns_t('users') . '</div>
             </div>
             <div class="wns-preview-meta-item">
-                <div class="wns-preview-meta-label">Content Period</div>
+                <div class="wns-preview-meta-label">' . wns_t('content_period') . '</div>
                 <div class="wns-preview-meta-value">' . date('M j', strtotime($date_from_str)) . ' - ' . date('M j, Y', strtotime($date_to_str)) . '</div>
             </div>
             <div class="wns-preview-meta-item">
-                <div class="wns-preview-meta-label">WordPress Posts</div>
-                <div class="wns-preview-meta-value">' . count($wp_posts) . ' posts' . esc_html($wp_status) . '</div>
+                <div class="wns-preview-meta-label">' . wns_t('wordpress_posts') . '</div>
+                <div class="wns-preview-meta-value">' . count($wp_posts) . ' ' . wns_t('posts') . ' ' . esc_html($wp_status) . '</div>
             </div>
             <div class="wns-preview-meta-item">
-                <div class="wns-preview-meta-label">Forum Activities</div>
-                <div class="wns-preview-meta-value">' . $forum_activity_count . ' posts in ' . count($wpforo_summary) . ' forums' . esc_html($forum_status) . '</div>
+                <div class="wns-preview-meta-label">' . wns_t('forum_activities') . '</div>
+                <div class="wns-preview-meta-value">' . $forum_activity_count . ' ' . wns_t('posts') . ' ' . wns_t('in') . ' ' . count($wpforo_summary) . ' ' . wns_t('forums') . ' ' . esc_html($forum_status) . '</div>
             </div>
             <div class="wns-preview-meta-item">
-                <div class="wns-preview-meta-label">Scheduled Send</div>
-                <div class="wns-preview-meta-value">' . (isset($target) ? $target->format('M j, Y H:i') : 'Not calculated') . '</div>
+                <div class="wns-preview-meta-label">' . wns_t('scheduled_send') . '</div>
+                <div class="wns-preview-meta-value">' . (isset($target) ? $target->format('M j, Y H:i') : wns_t('not_calculated')) . '</div>
             </div>
         </div>
         <div class="wns-preview-email-content" style="padding: 30px 20px;">
@@ -290,7 +381,7 @@ function wns_build_subject($target_date = null) {
         }
     }
     
-    return 'Weekly Newsletter - ' . $date_str;
+    return wns_t('default_subject') . ' - ' . $date_str;
 }
 
 // --- ENCRYPTION FUNCTIONS ---
@@ -561,12 +652,12 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
         $accent_color = get_option('wns_email_accent_color', '#0073aa');
         $meta_color = get_option('wns_email_meta_color', '#888888');
         $message .= '<div class="card" style="text-align:center; padding:2em 1em;">
-            <p style="font-size:1.2em; color:'.$meta_color.'; margin-bottom:1.2em;">No new posts or articles this week.</p>
+            <p style="font-size:1.2em; color:'.$meta_color.'; margin-bottom:1.2em;">'.wns_t('no_new_posts_this_week').'</p>
             <p>
-                <a href="' . esc_url(home_url('/')) . '" style="color:'.$accent_color.'; font-weight:600; text-decoration:underline; margin-right:1.5em;">Visit Website</a>
-                <a href="' . esc_url(site_url('/community/')) . '" style="color:'.$accent_color.'; font-weight:600; text-decoration:underline;">Visit Forum</a>
+                <a href="' . esc_url(home_url('/')) . '" style="color:'.$accent_color.'; font-weight:600; text-decoration:underline; margin-right:1.5em;">'.wns_t('visit_website').'</a>
+                <a href="' . esc_url(site_url('/community/')) . '" style="color:'.$accent_color.'; font-weight:600; text-decoration:underline;">'.wns_t('visit_forum').'</a>
             </p>
-            <p style="color:'.$meta_color.'; font-size:0.98em; margin-top:1.5em;">You can browse older articles or discussions on our website and forum.</p>
+            <p style="color:'.$meta_color.'; font-size:0.98em; margin-top:1.5em;">'.wns_t('browse_older_content').'</p>
         </div>';
         return $message;
     }
@@ -614,9 +705,9 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
     if ($include_forum && !empty($summary)) {
         $message .= '<section class="forum-section"><h2 class="section-title">Latest Forum Posts</h2>';
         foreach ($summary as $forum) {
-            $message .= '<div class="forum-header"><span class="category-label">Forum</span><span class="forum-name">'.esc_html($forum['forum_name']).'</span></div>';
+            $message .= '<div class="forum-header"><span class="category-label">'.wns_t('forum').'</span><span class="forum-name">'.esc_html($forum['forum_name']).'</span></div>';
             foreach ($forum['threads'] as $thread) {
-                $message .= '<div class="thread-header"><span class="topic-label">Topic</span><span class="thread-name">'.esc_html($thread['thread_subject']).'</span></div>';
+                $message .= '<div class="thread-header"><span class="topic-label">'.wns_t('topic').'</span><span class="thread-name">'.esc_html($thread['thread_subject']).'</span></div>';
                 foreach ($thread['posts'] as $post) {
                     $url = function_exists('wpforo_topic') ? wpforo_topic($post->topicid, 'url') : site_url("/community/topic/{$post->topicid}");
                     $postdate = date('d.m.Y', strtotime($post->created));
@@ -673,10 +764,10 @@ function wns_add_inline_styles($content) {
 // --- EMAIL BUILDING ---
 function wns_build_email($summary, $count, $wp_posts = []) {
     // Use design intro text only - no fallback to old settings
-    $intro = get_option('wns_email_intro_text', 'This week we have prepared {count} new posts and articles for you.');
+    $intro = get_option('wns_email_intro_text', wns_t('intro_text_placeholder'));
     // Ensure intro is a string before str_replace
     if (!is_string($intro)) {
-        $intro = 'This week we have prepared {count} new posts and articles for you.';
+        $intro = wns_t('intro_text_placeholder');
     }
     $intro = str_replace('{count}', $count, $intro);
     $include_wp = get_option('wns_include_wp', 1);
@@ -722,12 +813,12 @@ function wns_build_email($summary, $count, $wp_posts = []) {
         (!$include_forum || empty($summary))
     ) {
         $message .= '<div class="card" style="text-align:center; padding:2em 1em;">
-            <p style="font-size:1.2em; color:'.$meta_color.'; margin-bottom:1.2em;">No new posts or articles this week.</p>
+            <p style="font-size:1.2em; color:'.$meta_color.'; margin-bottom:1.2em;">'.wns_t('no_new_posts_this_week').'</p>
             <p>
-                <a href="' . esc_url(home_url('/')) . '" style="color:'.$accent_color.'; font-weight:600; text-decoration:underline; margin-right:1.5em;">Visit Website</a>
-                <a href="' . esc_url(site_url('/community/')) . '" style="color:'.$accent_color.'; font-weight:600; text-decoration:underline;">Visit Forum</a>
+                <a href="' . esc_url(home_url('/')) . '" style="color:'.$accent_color.'; font-weight:600; text-decoration:underline; margin-right:1.5em;">'.wns_t('visit_website').'</a>
+                <a href="' . esc_url(site_url('/community/')) . '" style="color:'.$accent_color.'; font-weight:600; text-decoration:underline;">'.wns_t('visit_forum').'</a>
             </p>
-            <p style="color:'.$meta_color.'; font-size:0.98em; margin-top:1.5em;">You can browse older articles or discussions on our website and forum.</p>
+            <p style="color:'.$meta_color.'; font-size:0.98em; margin-top:1.5em;">'.wns_t('browse_older_content').'</p>
         </div>';
     }
 
@@ -774,9 +865,9 @@ function wns_build_email($summary, $count, $wp_posts = []) {
     if ($include_forum && !empty($summary)) {
         $message .= '<section class="forum-section"><h2 class="section-title">Latest Forum Posts</h2>';
         foreach ($summary as $forum) {
-            $message .= '<div class="forum-header"><span class="category-label">Forum</span><span class="forum-name">'.esc_html($forum['forum_name']).'</span></div>';
+            $message .= '<div class="forum-header"><span class="category-label">'.wns_t('forum').'</span><span class="forum-name">'.esc_html($forum['forum_name']).'</span></div>';
             foreach ($forum['threads'] as $thread) {
-                $message .= '<div class="thread-header"><span class="topic-label">Topic</span><span class="thread-name">'.esc_html($thread['thread_subject']).'</span></div>';
+                $message .= '<div class="thread-header"><span class="topic-label">'.wns_t('topic').'</span><span class="thread-name">'.esc_html($thread['thread_subject']).'</span></div>';
                 foreach ($thread['posts'] as $post) {
                     $url = function_exists('wpforo_topic') ? wpforo_topic($post->topicid, 'url') : site_url("/community/topic/{$post->topicid}");
                     $postdate = date('d.m.Y', strtotime($post->created));
@@ -788,7 +879,7 @@ function wns_build_email($summary, $count, $wp_posts = []) {
                     $message .= "<div class='post-title'>".esc_html($post->title)."</div>";
                     $message .= "<div class='post-meta'>{$author} &middot; {$postdate} {$posttime}</div>";
                     $message .= "<div class='post-excerpt'>{$excerpt_html}</div>";
-                    $message .= "<div class='post-readmore'><a href='{$url}'>Read more on forum...</a></div>";
+                    $message .= "<div class='post-readmore'><a href='{$url}'>".wns_t('read_more_forum')."</a></div>";
                     $message .= "</div>";
                 }
             }
@@ -796,7 +887,7 @@ function wns_build_email($summary, $count, $wp_posts = []) {
         $message .= '</section>';
     }
 
-    $html_header = "\n<!DOCTYPE html>\n<html>\n<head>\n<title>Weekly Newsletter</title>\n<meta charset='utf-8' />\n<style>
+    $html_header = "\n<!DOCTYPE html>\n<html>\n<head>\n<title>".wns_t('default_header_title')."</title>\n<meta charset='utf-8' />\n<style>
 " . wns_generate_email_styles() . "
 </style>\n</head>\n<body style='background: {$bg_color}; font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};'>\n<div class='content' style='color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);'>\n";
     
@@ -982,10 +1073,10 @@ function wns_get_demo_author_name($userid) {
 // --- BUILD DEMO EMAIL FOR PREVIEW ---
 function wns_build_demo_email() {
     $demo_data = wns_generate_demo_email_content();
-    $intro = get_option('wns_email_intro_text', 'This week we have prepared {count} new posts and articles for you.');
+    $intro = get_option('wns_email_intro_text', wns_t('intro_text_placeholder'));
     // Ensure intro is a string before str_replace
     if (!is_string($intro)) {
-        $intro = 'This week we have prepared {count} new posts and articles for you.';
+        $intro = wns_t('intro_text_placeholder');
     }
     $count = count($demo_data['wp_posts']) + count($demo_data['forum_summary'][0]['threads'][0]['posts']) + count($demo_data['forum_summary'][1]['threads'][0]['posts']);
     $intro = str_replace('{count}', $count, $intro);
@@ -1025,7 +1116,7 @@ function wns_build_demo_email() {
     $message = "<div class='email-header'>{$header_content}</div><div class='intro'><strong>".esc_html($intro)."</strong></div>";
 
     // WordPress posts section with demo data
-    $message .= '<section class="wp-posts"><h2 class="section-title">Latest Articles from Website</h2>';
+    $message .= '<section class="wp-posts"><h2 class="section-title">'.wns_t('latest_articles_website').'</h2>';
     $posts_by_cat = [];
     foreach ($demo_data['wp_posts'] as $post) {
         $cat_name = $post->category;
@@ -1052,18 +1143,18 @@ function wns_build_demo_email() {
             $message .= "<div class='post-title'><a href='{$url}'>{$title}</a></div>";
             $message .= "<div class='post-meta'>{$date}</div>";
             $message .= "<div class='post-excerpt'>{$excerpt}</div>";
-            $message .= "<div class='post-readmore'><a href='{$url}'>Read more on website...</a></div>";
+            $message .= "<div class='post-readmore'><a href='{$url}'>".wns_t('read_more_website')."</a></div>";
             $message .= "</div>";
         }
     }
     $message .= '</section>';
 
     // Forum section with demo data
-    $message .= '<section class="forum-section"><h2 class="section-title">Latest Forum Posts</h2>';
+    $message .= '<section class="forum-section"><h2 class="section-title">'.wns_t('latest_forum_posts').'</h2>';
     foreach ($demo_data['forum_summary'] as $forum) {
-        $message .= '<div class="forum-header"><span class="category-label">Category</span><span class="forum-name">'.esc_html($forum['forum_name']).'</span></div>';
+        $message .= '<div class="forum-header"><span class="category-label">'.wns_t('forum').'</span><span class="forum-name">'.esc_html($forum['forum_name']).'</span></div>';
         foreach ($forum['threads'] as $thread) {
-            $message .= '<div class="thread-header"><span class="topic-label">Topic</span><span class="thread-name">'.esc_html($thread['thread_subject']).'</span></div>';
+            $message .= '<div class="thread-header"><span class="topic-label">'.wns_t('topic_label').'</span><span class="thread-name">'.esc_html($thread['thread_subject']).'</span></div>';
             foreach ($thread['posts'] as $post) {
                 $url = site_url("/community/topic/{$post->topicid}");
                 $postdate = date('M j, Y', strtotime($post->created));
@@ -1087,7 +1178,7 @@ function wns_build_demo_email() {
         $message .= '<div class="email-footer">' . nl2br(esc_html($footer_text)) . '</div>';
     }
 
-    $html_header = "<!DOCTYPE html>\n<html>\n<head>\n<title>Weekly Newsletter</title>\n<meta charset='utf-8' />\n<style>
+    $html_header = "<!DOCTYPE html>\n<html>\n<head>\n<title>".wns_t('weekly_newsletter_title')."</title>\n<meta charset='utf-8' />\n<style>
 " . wns_generate_email_styles() . "
 </style>\n</head>\n<body style='background: {$bg_color}; font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};'>\n<div class='content' style='color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);'>\n";
     
@@ -1254,7 +1345,7 @@ function wns_send_email_smtp($to, $subject, $message, $headers = []) {
 
 // --- SETTINGS PAGE ---
 function wns_register_settings() {
-    add_option('wns_subject', 'Weekly Newsletter');
+    add_option('wns_subject', wns_t('default_subject', 'Weekly Newsletter'));
     // Only allow subscriber and administrator
     add_option('wns_roles', ['subscriber', 'administrator']);
     add_option('wns_enabled', 1);
@@ -1266,6 +1357,7 @@ function wns_register_settings() {
     add_option('wns_include_forum', 1); // new: include forum posts
     add_option('wns_include_wp', 1); // new: include wp posts
     add_option('wns_from_name', 'Forum & News'); // new: from name for newsletter only
+    add_option('wns_language', 'en'); // new: language preference
     
     // Mail configuration options
     add_option('wns_mail_type', 'wordpress'); // wordpress or smtp
@@ -1286,6 +1378,9 @@ function wns_register_settings() {
     register_setting('wns_options_group', 'wns_include_forum');
     register_setting('wns_options_group', 'wns_include_wp');
     register_setting('wns_options_group', 'wns_from_name'); // new: from name
+    
+    // Language settings - separate group
+    register_setting('wns_language_group', 'wns_language'); // language preference
     
     // Email design settings
     register_setting('wns_design_group', 'wns_email_header_color');
@@ -1342,6 +1437,12 @@ function wns_set_newsletter_from_name($name) {
 }
 
 function wns_settings_page() {
+    // Force fresh translation loading for admin context
+    global $wns_translations;
+    $wns_translations = null; // Clear any cached translations
+    $language = get_option('wns_language', 'en');
+    wns_load_translations($language);
+    
     $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'settings';
     
     // Handle notifications
@@ -1904,23 +2005,23 @@ function wns_settings_page() {
     </style>
     <div class="wns-admin-wrapper">
         <div class="wns-admin-header">
-            <h1>Weekly Newsletter Sender</h1>
+            <h1><?php wns_te('weekly_newsletter_sender'); ?></h1>
             <div class="wns-tab-nav">
                 <a href="<?php echo admin_url('admin.php?page=wns-main&tab=settings'); ?>" 
                    class="wns-tab-button <?php echo $current_tab === 'settings' ? 'active' : ''; ?>">
-                    Settings
+                    <?php wns_te('tab_settings'); ?>
                 </a>
                 <a href="<?php echo admin_url('admin.php?page=wns-main&tab=configuration'); ?>" 
                    class="wns-tab-button <?php echo $current_tab === 'configuration' ? 'active' : ''; ?>">
-                    Configuration
+                    <?php wns_te('tab_configuration'); ?>
                 </a>
                 <a href="<?php echo admin_url('admin.php?page=wns-main&tab=design'); ?>" 
                    class="wns-tab-button <?php echo $current_tab === 'design' ? 'active' : ''; ?>">
-                    Email Design
+                    <?php wns_te('tab_email_design'); ?>
                 </a>
                 <a href="<?php echo admin_url('admin.php?page=wns-main&tab=preview'); ?>" 
                    class="wns-tab-button <?php echo $current_tab === 'preview' ? 'active' : ''; ?>">
-                    Next Email Preview
+                    <?php wns_te('tab_preview'); ?>
                 </a>
             </div>
         </div>
@@ -1952,6 +2053,143 @@ function wns_settings_page() {
             </script>
         <?php endif; ?>
         
+        <!-- Language Selection Section -->
+        <div class="wns-language-section">
+            <div class="wns-language-container">
+                <span class="wns-language-label"><?php wns_te('language_preference'); ?>:</span>
+                <form method="post" action="options.php" id="wns-language-form" class="wns-language-form">
+                    <?php 
+                    settings_fields('wns_language_group'); 
+                    $current_language = get_option('wns_language', 'en');
+                    ?>
+                    <div class="wns-language-options">
+                        <label class="wns-language-option <?php echo $current_language === 'en' ? 'active' : ''; ?>">
+                            <input type="radio" name="wns_language" value="en" <?php checked($current_language, 'en'); ?> />
+                            <span class="wns-flag">🇺🇸</span>
+                            <span class="wns-language-name"><?php wns_te('english'); ?></span>
+                        </label>
+                        <label class="wns-language-option <?php echo $current_language === 'sk' ? 'active' : ''; ?>">
+                            <input type="radio" name="wns_language" value="sk" <?php checked($current_language, 'sk'); ?> />
+                            <span class="wns-flag">🇸🇰</span>
+                            <span class="wns-language-name"><?php wns_te('slovak'); ?></span>
+                        </label>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const languageInputs = document.querySelectorAll('input[name="wns_language"]');
+            const form = document.getElementById('wns-language-form');
+            
+            languageInputs.forEach(function(input) {
+                input.addEventListener('change', function() {
+                    if (this.checked) {
+                        const currentLang = '<?php echo $current_language; ?>';
+                        const newLang = this.value;
+                        const langNames = {
+                            'en': '<?php wns_te("english"); ?>',
+                            'sk': '<?php wns_te("slovak"); ?>'
+                        };
+                        
+                        if (newLang !== currentLang) {
+                            const message = 'Switch interface language to ' + langNames[newLang] + '? The page will reload to apply changes.';
+                            if (confirm(message)) {
+                                form.submit();
+                            } else {
+                                // Revert selection
+                                document.querySelector('input[value="' + currentLang + '"]').checked = true;
+                                // Update visual state
+                                document.querySelectorAll('.wns-language-option').forEach(opt => opt.classList.remove('active'));
+                                document.querySelector('input[value="' + currentLang + '"]').closest('.wns-language-option').classList.add('active');
+                            }
+                        }
+                    }
+                });
+            });
+        });
+        </script>
+        
+        <style>
+        .wns-language-section {
+            background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            border: 1px solid #444;
+        }
+        
+        .wns-language-container {
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .wns-language-label {
+            color: #e0e0e0;
+            font-weight: 600;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        
+        .wns-language-form {
+            margin: 0;
+        }
+        
+        .wns-language-options {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .wns-language-option {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid #555;
+            border-radius: 20px;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #cccccc;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .wns-language-option:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #777;
+            transform: translateY(-1px);
+            color: #ffffff;
+        }
+        
+        .wns-language-option.active {
+            background: #ffffff;
+            border-color: #ffffff;
+            color: #333;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        }
+        
+        .wns-language-option input[type="radio"] {
+            display: none;
+        }
+        
+        .wns-flag {
+            font-size: 16px;
+            filter: grayscale(0);
+        }
+        
+        .wns-language-option:not(.active) .wns-flag {
+            filter: grayscale(0.7) brightness(0.8);
+        }
+        
+        .wns-language-name {
+            font-weight: 600;
+        }
+        </style>
+
         <div class="wns-admin-content">
             
             <!-- Settings Tab -->
@@ -1961,52 +2199,52 @@ function wns_settings_page() {
                         <?php settings_fields('wns_options_group'); ?>
                         
                         <div class="wns-form-row">
-                            <label class="wns-form-label">Enable Newsletter</label>
+                            <label class="wns-form-label"><?php wns_te('enable_newsletter'); ?></label>
                             <label class="wns-checkbox-label">
                                 <input type="checkbox" name="wns_enabled" value="1" class="wns-checkbox-input" <?php checked(1, get_option('wns_enabled'), true); ?> />
-                                Enable or disable sending
+                                <?php wns_te('enable_disable_sending'); ?>
                             </label>
                         </div>
                         
                         <div class="wns-form-row">
-                            <label class="wns-form-label">From Name (displayed in email)</label>
+                            <label class="wns-form-label"><?php wns_te('from_name_label'); ?></label>
                             <input type="text" name="wns_from_name" value="<?php echo esc_attr($from_name); ?>" class="wns-form-input" />
-                            <div class="wns-form-help">Only for this newsletter, not other site emails.</div>
+                            <div class="wns-form-help"><?php wns_te('from_name_help'); ?></div>
                         </div>
                         
                         <div class="wns-form-row">
-                            <label class="wns-form-label">Email Subject</label>
+                            <label class="wns-form-label"><?php wns_te('email_subject'); ?></label>
                             <input type="text" name="wns_subject" value="<?php echo esc_attr(get_option('wns_subject')); ?>" class="wns-form-input" />
                         </div>
                         
                         <div class="wns-form-row">
-                            <label class="wns-form-label">User Roles to Send To</label>
+                            <label class="wns-form-label"><?php wns_te('user_roles_to_send'); ?></label>
                             <div class="wns-checkbox-group">
                                 <label class="wns-checkbox-label">
                                     <input type="checkbox" name="wns_roles[]" value="subscriber" class="wns-checkbox-input" <?php checked(in_array('subscriber', $roles)); ?>>
-                                    Subscriber
+                                    <?php wns_te('role_subscriber'); ?>
                                 </label>
                                 <label class="wns-checkbox-label">
                                     <input type="checkbox" name="wns_roles[]" value="administrator" class="wns-checkbox-input" <?php checked(in_array('administrator', $roles)); ?>>
-                                    Administrator
+                                    <?php wns_te('role_administrator'); ?>
                                 </label>
                             </div>
-                            <div class="wns-form-help">Only checked roles will receive the newsletter.</div>
+                            <div class="wns-form-help"><?php wns_te('roles_help'); ?></div>
                         </div>
                         
                         <div class="wns-form-row">
-                            <label class="wns-form-label">Date Range for Newsletter Content</label>
+                            <label class="wns-form-label"><?php wns_te('date_range_newsletter'); ?></label>
                             <select name="wns_date_range_type" id="wns_date_range_type" class="wns-form-select">
-                                <option value="week" <?php selected($date_range_type, 'week'); ?>>Latest this week</option>
-                                <option value="custom" <?php selected($date_range_type, 'custom'); ?>>Custom range</option>
+                                <option value="week" <?php selected($date_range_type, 'week'); ?>><?php wns_te('latest_this_week'); ?></option>
+                                <option value="custom" <?php selected($date_range_type, 'custom'); ?>><?php wns_te('custom_range'); ?></option>
                             </select>
                             <div id="wns_custom_dates" class="wns-date-inputs" style="<?php if($date_range_type!=='custom') echo 'display:none;'; ?>">
-                                <label>From:</label>
+                                <label><?php wns_te('from_label'); ?></label>
                                 <input type="date" name="wns_date_from" value="<?php echo esc_attr($date_from); ?>" class="wns-form-input">
-                                <label>To:</label>
+                                <label><?php wns_te('to_label'); ?></label>
                                 <input type="date" name="wns_date_to" value="<?php echo esc_attr($date_to); ?>" class="wns-form-input">
                             </div>
-                            <div class="wns-form-help">This date range applies to both WordPress posts and forum posts in the newsletter.</div>
+                            <div class="wns-form-help"><?php wns_te('date_range_help'); ?></div>
                             <script>
                             document.getElementById('wns_date_range_type').addEventListener('change', function() {
                                 document.getElementById('wns_custom_dates').style.display = this.value === 'custom' ? '' : 'none';
@@ -2015,41 +2253,41 @@ function wns_settings_page() {
                         </div>
                         
                         <div class="wns-form-row">
-                            <label class="wns-form-label">Include Forum Posts</label>
+                            <label class="wns-form-label"><?php wns_te('include_forum_posts'); ?></label>
                             <label class="wns-checkbox-label">
                                 <input type="checkbox" name="wns_include_forum" value="1" class="wns-checkbox-input" <?php checked(1, $include_forum, true); ?> />
-                                Include wpForo forum posts
+                                <?php wns_te('include_wpforo_posts'); ?>
                             </label>
                         </div>
                         
                         <div class="wns-form-row">
-                            <label class="wns-form-label">Include Website Posts</label>
+                            <label class="wns-form-label"><?php wns_te('include_website_posts'); ?></label>
                             <label class="wns-checkbox-label">
                                 <input type="checkbox" name="wns_include_wp" value="1" class="wns-checkbox-input" <?php checked(1, $include_wp, true); ?> />
-                                Include WordPress posts
+                                <?php wns_te('include_wordpress_posts'); ?>
                             </label>
                         </div>
                         
                         <div class="wns-form-row">
-                            <label class="wns-form-label">Send Day</label>
+                            <label class="wns-form-label"><?php wns_te('send_day'); ?></label>
                             <select name="wns_send_day" class="wns-form-select">
-                                <option value="monday" <?php selected($send_day, 'monday'); ?>>Monday</option>
-                                <option value="tuesday" <?php selected($send_day, 'tuesday'); ?>>Tuesday</option>
-                                <option value="wednesday" <?php selected($send_day, 'wednesday'); ?>>Wednesday</option>
-                                <option value="thursday" <?php selected($send_day, 'thursday'); ?>>Thursday</option>
-                                <option value="friday" <?php selected($send_day, 'friday'); ?>>Friday</option>
-                                <option value="saturday" <?php selected($send_day, 'saturday'); ?>>Saturday</option>
-                                <option value="sunday" <?php selected($send_day, 'sunday'); ?>>Sunday</option>
+                                <option value="monday" <?php selected($send_day, 'monday'); ?>><?php wns_te('monday'); ?></option>
+                                <option value="tuesday" <?php selected($send_day, 'tuesday'); ?>><?php wns_te('tuesday'); ?></option>
+                                <option value="wednesday" <?php selected($send_day, 'wednesday'); ?>><?php wns_te('wednesday'); ?></option>
+                                <option value="thursday" <?php selected($send_day, 'thursday'); ?>><?php wns_te('thursday'); ?></option>
+                                <option value="friday" <?php selected($send_day, 'friday'); ?>><?php wns_te('friday'); ?></option>
+                                <option value="saturday" <?php selected($send_day, 'saturday'); ?>><?php wns_te('saturday'); ?></option>
+                                <option value="sunday" <?php selected($send_day, 'sunday'); ?>><?php wns_te('sunday'); ?></option>
                             </select>
                         </div>
                         
                         <div class="wns-form-row">
-                            <label class="wns-form-label">Send Time</label>
+                            <label class="wns-form-label"><?php wns_te('send_time'); ?></label>
                             <input type="time" name="wns_send_time" value="<?php echo esc_attr($send_time); ?>" class="wns-form-input" />
                         </div>
                         
                         <div class="wns-form-row">
-                            <label class="wns-form-label">Next Scheduled Send</label>
+                            <label class="wns-form-label"><?php wns_te('next_scheduled_send'); ?></label>
                             <div class="wns-info-text">
                                 <?php
                                 $send_day = get_option('wns_send_day', 'monday');
@@ -2068,31 +2306,31 @@ function wns_settings_page() {
                                     }
                                     echo esc_html($target->format('l, d.m.Y H:i')) . ' (' . esc_html($timezone->getName()) . ')';
                                 } catch (Exception $e) {
-                                    echo 'Error calculating next send time. Please check your send day and time settings.';
+                                    wns_te('error_calculating_send_time');
                                 }
                                 ?>
                             </div>
                             <div style="margin-top: 10px;">
                                 <a href="<?php echo admin_url('admin.php?page=wns-main&tab=preview'); ?>" class="button button-secondary">
-                                    📧 Preview Next Email
+                                    <?php wns_te('preview_next_email'); ?>
                                 </a>
                                 <span style="color: #666; font-size: 13px; margin-left: 10px;">
-                                    See exactly how your next newsletter will look
+                                    <?php wns_te('preview_help_text'); ?>
                                 </span>
                             </div>
                         </div>
                         
-                        <?php submit_button('Save Settings', 'primary large wns-button'); ?>
+                        <?php submit_button(wns_t('save_settings'), 'primary large wns-button'); ?>
                     </form>
                 </div>
                 
                 <div class="wns-divider"></div>
                 
                 <div class="wns-section">
-                    <div class="wns-section-title">Manual Send</div>
+                    <div class="wns-section-title"><?php wns_te('manual_send'); ?></div>
                     <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
                         <input type="hidden" name="action" value="wns_manual_send" />
-                        <?php submit_button('Send Newsletter Now', 'secondary large wns-button wns-button-secondary'); ?>
+                        <?php submit_button(wns_t('send_newsletter_now'), 'secondary large wns-button wns-button-secondary'); ?>
                     </form>
                 </div>
             </div>
@@ -2101,9 +2339,9 @@ function wns_settings_page() {
             <div class="wns-tab-content <?php echo $current_tab === 'design' ? 'active' : ''; ?>">
                 <?php if ($current_tab === 'preview'): ?>
                     <div class="wns-section">
-                        <div class="wns-section-title">Live Newsletter Preview</div>
+                        <div class="wns-section-title"><?php wns_te('live_newsletter_preview'); ?></div>
                         <div class="wns-info-text">
-                            This preview shows exactly what recipients will receive in their email, using your current Email Design settings and the latest content from your website.
+                            <?php wns_te('live_preview_description'); ?>
                         </div>
                         
                         <div style="
@@ -2115,7 +2353,7 @@ function wns_settings_page() {
                             ">
                             <div class="wns-email-preview" id="preview-email-container">
                                 <div style="text-align: center; padding: 40px; color: #666;">
-                                    Loading preview...
+                                    <?php wns_te('loading_preview'); ?>
                                 </div>
                             </div>
                         </div>
@@ -2145,7 +2383,7 @@ function wns_settings_page() {
                                 headerTitle: '<?php echo esc_js(get_option('wns_email_header_title', 'Weekly Newsletter')); ?>',
                                 headerSubtitle: '<?php echo esc_js(get_option('wns_email_header_subtitle', '')); ?>',
                                 logoUrl: '<?php echo esc_js(get_option('wns_email_logo_url', '')); ?>',
-                                introText: '<?php echo esc_js(get_option('wns_email_intro_text', 'This week we have prepared {count} new posts and articles for you.')); ?>',
+                                introText: '<?php echo esc_js(get_option('wns_email_intro_text', wns_t('intro_text_placeholder'))); ?>',
                                 headerColor: '<?php echo esc_js(get_option('wns_email_header_color', '#2c5aa0')); ?>',
                                 headerTextSize: '<?php echo esc_js(get_option('wns_email_header_text_size', '28')); ?>',
                                 accentColor: '<?php echo esc_js(get_option('wns_email_accent_color', '#0073aa')); ?>',
@@ -2346,107 +2584,107 @@ ${footerHTML}
                 <div class="wns-design-container">
                     <div class="wns-design-settings">
                         <div class="wns-section">
-                            <div class="wns-section-title">Email Design Customization</div>
+                            <div class="wns-section-title"><?php wns_te('email_design_customization'); ?></div>
                             
                             <form method="post" action="options.php" id="design-form">
                                 <?php settings_fields('wns_design_group'); ?>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Header Title</label>
-                                    <input type="text" name="wns_email_header_title" id="header-title" value="<?php echo esc_attr(get_option('wns_email_header_title', 'Weekly Newsletter')); ?>" class="wns-form-input" placeholder="Weekly Newsletter" />
-                                    <div class="wns-form-help">Main title text for the email header.</div>
+                                    <label class="wns-form-label"><?php wns_te('header_title_label'); ?></label>
+                                    <input type="text" name="wns_email_header_title" id="header-title" value="<?php echo esc_attr(get_option('wns_email_header_title', 'Weekly Newsletter')); ?>" class="wns-form-input" placeholder="<?php echo esc_attr(wns_t('weekly_newsletter_title')); ?>" />
+                                    <div class="wns-form-help"><?php wns_te('header_title_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Header Subtitle</label>
-                                    <input type="text" name="wns_email_header_subtitle" id="header-subtitle" value="<?php echo esc_attr(get_option('wns_email_header_subtitle', '')); ?>" class="wns-form-input" placeholder="Your weekly digest" />
-                                    <div class="wns-form-help">Optional subtitle text below the main title.</div>
+                                    <label class="wns-form-label"><?php wns_te('header_subtitle_label'); ?></label>
+                                    <input type="text" name="wns_email_header_subtitle" id="header-subtitle" value="<?php echo esc_attr(get_option('wns_email_header_subtitle', '')); ?>" class="wns-form-input" placeholder="<?php echo esc_attr(wns_t('header_subtitle_placeholder')); ?>" />
+                                    <div class="wns-form-help"><?php wns_te('header_subtitle_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Logo URL</label>
-                                    <input type="url" name="wns_email_logo_url" id="logo-url" value="<?php echo esc_attr(get_option('wns_email_logo_url', '')); ?>" class="wns-form-input" placeholder="https://example.com/logo.png" />
-                                    <div class="wns-form-help">URL to your logo image. Logo will replace header text if provided.</div>
+                                    <label class="wns-form-label"><?php wns_te('logo_url_label'); ?></label>
+                                    <input type="url" name="wns_email_logo_url" id="logo-url" value="<?php echo esc_attr(get_option('wns_email_logo_url', '')); ?>" class="wns-form-input" placeholder="<?php echo esc_attr(wns_t('logo_url_placeholder')); ?>" />
+                                    <div class="wns-form-help"><?php wns_te('logo_url_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Header Color</label>
+                                    <label class="wns-form-label"><?php wns_te('header_color_label'); ?></label>
                                     <input type="color" name="wns_email_header_color" id="header-color" value="<?php echo esc_attr(get_option('wns_email_header_color', '#2c5aa0')); ?>" class="wns-form-input" />
-                                    <div class="wns-form-help">Background color for the newsletter header.</div>
+                                    <div class="wns-form-help"><?php wns_te('header_color_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Intro Text</label>
-                                    <textarea name="wns_email_intro_text" id="intro-text" class="wns-form-input" style="min-height: 80px; resize: vertical;" rows="3" placeholder="This week we have prepared {count} new posts and articles for you."><?php echo esc_textarea(get_option('wns_email_intro_text', 'This week we have prepared {count} new posts and articles for you.')); ?></textarea>
-                                    <div class="wns-form-help">Introduction text for your newsletter. Use {count} to show the number of posts.</div>
+                                    <label class="wns-form-label"><?php wns_te('intro_text_label'); ?></label>
+                                    <textarea name="wns_email_intro_text" id="intro-text" class="wns-form-input" style="min-height: 80px; resize: vertical;" rows="3" placeholder="<?php echo esc_attr(wns_t('intro_text_placeholder')); ?>"><?php echo esc_textarea(get_option('wns_email_intro_text', wns_t('intro_text_placeholder'))); ?></textarea>
+                                    <div class="wns-form-help"><?php wns_te('intro_text_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Header Text Size</label>
+                                    <label class="wns-form-label"><?php wns_te('header_text_size_label'); ?></label>
                                     <input type="range" name="wns_email_header_text_size" id="header-text-size" value="<?php echo esc_attr(get_option('wns_email_header_text_size', '28')); ?>" min="16" max="48" class="wns-form-range" />
                                     <span id="header-text-size-value"><?php echo get_option('wns_email_header_text_size', '28'); ?>px</span>
-                                    <div class="wns-form-help">Size of the header text.</div>
+                                    <div class="wns-form-help"><?php wns_te('header_text_size_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Accent Color</label>
+                                    <label class="wns-form-label"><?php wns_te('accent_color_label'); ?></label>
                                     <input type="color" name="wns_email_accent_color" id="accent-color" value="<?php echo esc_attr(get_option('wns_email_accent_color', '#0073aa')); ?>" class="wns-form-input" />
-                                    <div class="wns-form-help">Color for links and highlights.</div>
+                                    <div class="wns-form-help"><?php wns_te('accent_color_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Text Color</label>
+                                    <label class="wns-form-label"><?php wns_te('text_color_label'); ?></label>
                                     <input type="color" name="wns_email_text_color" id="text-color" value="<?php echo esc_attr(get_option('wns_email_text_color', '#333333')); ?>" class="wns-form-input" />
-                                    <div class="wns-form-help">Main text color for the email content.</div>
+                                    <div class="wns-form-help"><?php wns_te('text_color_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Meta Text Color</label>
+                                    <label class="wns-form-label"><?php wns_te('meta_text_color_label'); ?></label>
                                     <input type="color" name="wns_email_meta_color" id="meta-color" value="<?php echo esc_attr(get_option('wns_email_meta_color', '#888888')); ?>" class="wns-form-input" />
-                                    <div class="wns-form-help">Color for dates, authors, and other meta information.</div>
+                                    <div class="wns-form-help"><?php wns_te('meta_text_color_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Background Color</label>
+                                    <label class="wns-form-label"><?php wns_te('background_color_label'); ?></label>
                                     <input type="color" name="wns_email_background_color" id="background-color" value="<?php echo esc_attr(get_option('wns_email_background_color', '#f9f9f9')); ?>" class="wns-form-input" />
-                                    <div class="wns-form-help">Background color for the email content area.</div>
+                                    <div class="wns-form-help"><?php wns_te('background_color_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Card Background Color</label>
+                                    <label class="wns-form-label"><?php wns_te('card_background_color_label'); ?></label>
                                     <input type="color" name="wns_email_card_bg_color" id="card-bg-color" value="<?php echo esc_attr(get_option('wns_email_card_bg_color', '#f8f8f8')); ?>" class="wns-form-input" />
-                                    <div class="wns-form-help">Background color for post and forum cards.</div>
+                                    <div class="wns-form-help"><?php wns_te('card_background_color_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Card Border Color</label>
+                                    <label class="wns-form-label"><?php wns_te('card_border_color_label'); ?></label>
                                     <input type="color" name="wns_email_card_border_color" id="card-border-color" value="<?php echo esc_attr(get_option('wns_email_card_border_color', '#e5e5e5')); ?>" class="wns-form-input" />
-                                    <div class="wns-form-help">Border color for post and forum cards.</div>
+                                    <div class="wns-form-help"><?php wns_te('card_border_color_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Content Padding</label>
+                                    <label class="wns-form-label"><?php wns_te('content_padding_label'); ?></label>
                                     <input type="range" name="wns_email_content_padding" id="content-padding" value="<?php echo esc_attr(get_option('wns_email_content_padding', '20')); ?>" min="10" max="40" class="wns-form-range" />
                                     <span id="content-padding-value"><?php echo get_option('wns_email_content_padding', '20'); ?>px</span>
-                                    <div class="wns-form-help">Internal spacing for email content.</div>
+                                    <div class="wns-form-help"><?php wns_te('content_padding_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Card Border Radius</label>
+                                    <label class="wns-form-label"><?php wns_te('card_border_radius_label'); ?></label>
                                     <input type="range" name="wns_email_card_radius" id="card-radius" value="<?php echo esc_attr(get_option('wns_email_card_radius', '7')); ?>" min="0" max="20" class="wns-form-range" />
                                     <span id="card-radius-value"><?php echo get_option('wns_email_card_radius', '7'); ?>px</span>
-                                    <div class="wns-form-help">Roundness of card corners.</div>
+                                    <div class="wns-form-help"><?php wns_te('card_border_radius_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Line Height</label>
+                                    <label class="wns-form-label"><?php wns_te('line_height_label'); ?></label>
                                     <input type="range" name="wns_email_line_height" id="line-height" value="<?php echo esc_attr(get_option('wns_email_line_height', '1.5')); ?>" min="1" max="2" step="0.1" class="wns-form-range" />
                                     <span id="line-height-value"><?php echo get_option('wns_email_line_height', '1.5'); ?></span>
-                                    <div class="wns-form-help">Spacing between lines of text.</div>
+                                    <div class="wns-form-help"><?php wns_te('line_height_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Font Family</label>
+                                    <label class="wns-form-label"><?php wns_te('font_family_label'); ?></label>
                                     <select name="wns_email_font_family" id="font-family" class="wns-form-input">
                                         <?php $current_font = get_option('wns_email_font_family', 'Arial, sans-serif'); ?>
                                         <option value="Arial, sans-serif" <?php selected($current_font, 'Arial, sans-serif'); ?>>Arial</option>
@@ -2457,22 +2695,22 @@ ${footerHTML}
                                         <option value="'Trebuchet MS', sans-serif" <?php selected($current_font, "'Trebuchet MS', sans-serif"); ?>>Trebuchet MS</option>
                                         <option value="'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" <?php selected($current_font, "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"); ?>>Segoe UI</option>
                                     </select>
-                                    <div class="wns-form-help">Font family for the email text.</div>
+                                    <div class="wns-form-help"><?php wns_te('font_family_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
-                                    <label class="wns-form-label">Footer Text</label>
-                                    <textarea name="wns_email_footer_text" id="footer-text" class="wns-form-input" style="min-height: 100px; resize: vertical;" rows="4" placeholder="Footer text for your newsletter..."><?php echo esc_textarea(get_option('wns_email_footer_text', '')); ?></textarea>
-                                    <div class="wns-form-help">Custom footer text to appear at the bottom of your newsletter.</div>
+                                    <label class="wns-form-label"><?php wns_te('footer_text_label'); ?></label>
+                                    <textarea name="wns_email_footer_text" id="footer-text" class="wns-form-input" style="min-height: 100px; resize: vertical;" rows="4" placeholder="<?php echo esc_attr(wns_t('footer_text_placeholder')); ?>"><?php echo esc_textarea(get_option('wns_email_footer_text', '')); ?></textarea>
+                                    <div class="wns-form-help"><?php wns_te('footer_text_help'); ?></div>
                                 </div>
                                 
-                                <?php submit_button('Save Design Settings', 'primary large wns-button wns-button-primary'); ?>
+                                <?php submit_button(wns_t('save_design_settings'), 'primary large wns-button wns-button-primary'); ?>
                             </form>
                         </div>
                     </div>
                     
                     <div class="wns-design-preview">
-                        <h3 style="margin-top: 0; color: #333; text-align: center;">Live Preview</h3>
+                        <h3 style="margin-top: 0; color: #333; text-align: center;"><?php wns_te('live_preview'); ?></h3>
                         <div class="wns-email-preview" id="email-preview">
                             <?php echo wns_build_demo_email(); ?>
                         </div>
@@ -2543,7 +2781,7 @@ ${footerHTML}
                     
                     function buildDynamicEmail() {
                         var values = {
-                            headerTitle: inputs.headerTitle.value || 'Weekly Newsletter',
+                            headerTitle: inputs.headerTitle.value || '<?php echo esc_js(wns_t('weekly_newsletter_title')); ?>',
                             headerSubtitle: inputs.headerSubtitle.value,
                             logoUrl: inputs.logoUrl.value,
                             introText: inputs.introText.value || 'This week we have prepared {count} new posts and articles for you.',
@@ -2706,34 +2944,34 @@ h1 {color: ${values.textColor}; border-bottom:2px solid ${values.cardBorderColor
 <div class='email-header'>${headerContent}</div>
 <div class='intro'><strong>${introContent}</strong></div>
 <section class="wp-posts">
-<h2 class="section-title">Latest Articles from Website</h2>
+<h2 class="section-title"><?php echo esc_js(wns_t('latest_articles_website')); ?></h2>
 <div class="forum-header"><span class="category-label">Technology</span></div>
 <div class='card post-card'>
 <div class='post-title'><a href='#'>New Features in WordPress 6.5</a></div>
 <div class='post-meta'>Sep 12, 2025</div>
 <div class='post-excerpt'>WordPress 6.5 brings a wealth of new features and improvements that will simplify managing your websites. Among the most significant updates are an enhanced block editor, new customization options, and better performance optimizations...</div>
-<div class='post-readmore'><a href='#'>Read more on website...</a></div>
+<div class='post-readmore'><a href='#'><?php echo esc_js(wns_t('read_more_website')); ?></a></div>
 </div>
 <div class="forum-header"><span class="category-label">Marketing</span></div>
 <div class='card post-card'>
 <div class='post-title'><a href='#'>SEO Optimization Tips for 2025</a></div>
 <div class='post-meta'>Sep 13, 2025</div>
 <div class='post-excerpt'>SEO continues to evolve, and for 2025 the key trends include AI-optimized content, technical SEO, and user experience. Focus on quality content, loading speed, and mobile optimization for the best results...</div>
-<div class='post-readmore'><a href='#'>Read more on website...</a></div>
+<div class='post-readmore'><a href='#'><?php echo esc_js(wns_t('read_more_website')); ?></a></div>
 </div>
 </section>
 <section class="forum-section">
-<h2 class="section-title">Latest Forum Posts</h2>
-<div class="forum-header"><span class="category-label">Category</span><span class="forum-name">General Discussion</span></div>
-<div class="thread-header"><span class="topic-label">Topic</span><span class="thread-name">Beginner Questions</span></div>
+<h2 class="section-title"><?php echo esc_js(wns_t('latest_forum_posts')); ?></h2>
+<div class="forum-header"><span class="category-label"><?php echo esc_js(wns_t('forum')); ?></span><span class="forum-name">General Discussion</span></div>
+<div class="thread-header"><span class="topic-label"><?php echo esc_js(wns_t('topic')); ?></span><span class="thread-name">Beginner Questions</span></div>
 <div class='card forum-post'>
 <div class='post-title'><a href='#'>How to start with programming?</a></div>
 <div class='post-meta'>John Smith &middot; Sep 14, 2025 08:30</div>
 <div class='post-excerpt'>Hello everyone! I'm a complete beginner in programming and would like to learn. Can you recommend which programming language would be best to start with? I'm thinking between Python and JavaScript...</div>
-<div class='post-readmore'><a href='#'>Continue reading on forum...</a></div>
+<div class='post-readmore'><a href='#'><?php echo esc_js(wns_t('continue_reading_forum')); ?></a></div>
 </div>
-<div class="forum-header"><span class="category-label">Category</span><span class="forum-name">Web Design</span></div>
-<div class="thread-header"><span class="topic-label">Topic</span><span class="thread-name">CSS Grid vs Flexbox</span></div>
+<div class="forum-header"><span class="category-label"><?php echo esc_js(wns_t('forum')); ?></span><span class="forum-name">Web Design</span></div>
+<div class="thread-header"><span class="topic-label"><?php echo esc_js(wns_t('topic')); ?></span><span class="thread-name">CSS Grid vs Flexbox</span></div>
 <div class='card forum-post'>
 <div class='post-title'><a href='#'>When to use CSS Grid vs Flexbox?</a></div>
 <div class='post-meta'>Sarah Johnson &middot; Sep 14, 2025 06:30</div>
@@ -2764,7 +3002,7 @@ ${footerHTML}
             <!-- Configuration Tab -->
             <div class="wns-tab-content <?php echo $current_tab === 'configuration' ? 'active' : ''; ?>">
                 <div class="wns-section">
-                    <div class="wns-section-title">Mail Configuration</div>
+                    <div class="wns-section-title"><?php wns_te('mail_configuration'); ?></div>
                     
                     <form method="post" action="options.php">
                         <?php 
@@ -2780,18 +3018,18 @@ ${footerHTML}
                         ?>
                         
                         <div class="wns-form-row">
-                            <label class="wns-form-label">Mail Method</label>
+                            <label class="wns-form-label"><?php wns_te('mail_method'); ?></label>
                             <div style="margin-top: 12px;">
                                 <label class="wns-checkbox-label" style="margin-bottom: 12px; display: block;">
                                     <input type="radio" name="wns_mail_type" value="wordpress" class="wns-checkbox-input" <?php checked($mail_type, 'wordpress'); ?> style="margin-right: 8px;" />
-                                    Use WordPress Mail Function (default)
+                                    <?php wns_te('use_wordpress_mail'); ?>
                                 </label>
                                 <label class="wns-checkbox-label" style="display: block;">
                                     <input type="radio" name="wns_mail_type" value="smtp" class="wns-checkbox-input" <?php checked($mail_type, 'smtp'); ?> style="margin-right: 8px;" />
-                                    Use SMTP Configuration
+                                    <?php wns_te('use_smtp_configuration'); ?>
                                 </label>
                             </div>
-                            <div class="wns-form-help">Choose how emails should be sent. WordPress mail function uses your server's mail settings, while SMTP allows custom configuration.</div>
+                            <div class="wns-form-help"><?php wns_te('mail_method_help'); ?></div>
                         </div>
                         
                         <div id="wns-smtp-config" style="<?php if($mail_type !== 'smtp') echo 'display:none;'; ?>">
@@ -2799,72 +3037,72 @@ ${footerHTML}
                             
                             <!-- Security Notice - only shown when SMTP is selected -->
                             <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 16px; margin-bottom: 24px;">
-                                <h4 style="margin: 0 0 8px 0; color: #856404;">🔒 Security Notice</h4>
+                                <h4 style="margin: 0 0 8px 0; color: #856404;"><?php wns_te('security_notice'); ?></h4>
                                 <p style="margin: 0 0 12px 0; color: #856404; font-size: 14px;">
-                                    While SMTP passwords are encrypted in your database, for maximum security we recommend storing sensitive credentials in WordPress constants in your <code>wp-config.php</code> file instead of the database.
+                                    <?php wns_te('smtp_security_message'); ?>
                                 </p>
                                 <p style="margin: 0 0 12px 0; color: #856404; font-size: 14px;">
-                                    <strong>Available constants:</strong> <code>WNS_SMTP_HOST</code>, <code>WNS_SMTP_PORT</code>, <code>WNS_SMTP_USERNAME</code>, <code>WNS_SMTP_PASSWORD</code>, <code>WNS_SMTP_ENCRYPTION</code>
+                                    <?php wns_te('available_constants'); ?>
                                 </p>
                                 <p style="margin: 0 0 12px 0; color: #856404; font-size: 14px;">
-                                    <strong>Disclaimer:</strong> We are not responsible for the security of your SMTP credentials. Use at your own risk.
+                                    <?php wns_te('smtp_disclaimer'); ?>
                                 </p>
                                 <p style="margin: 0; color: #856404; font-size: 14px;">
-                                    📖 <a href="https://developer.wordpress.org/apis/wp-config-php/#custom-settings" target="_blank" style="color: #856404; text-decoration: underline;">Learn how to use WordPress constants for credentials</a>
+                                    <?php wns_te('smtp_learn_link'); ?>
                                 </p>
                             </div>
                             
                             <div class="wns-form-row">
-                                <label class="wns-form-label">SMTP Host</label>
+                                <label class="wns-form-label"><?php wns_te('smtp_host'); ?></label>
                                 <input type="text" name="wns_smtp_host" value="<?php echo esc_attr($smtp_host); ?>" class="wns-form-input" placeholder="smtp.gmail.com" />
-                                <div class="wns-form-help">Your SMTP server hostname (e.g., smtp.gmail.com, smtp.mailgun.org)</div>
+                                <div class="wns-form-help"><?php wns_te('smtp_host_help'); ?></div>
                             </div>
                             
                             <div class="wns-form-row">
-                                <label class="wns-form-label">SMTP Port</label>
+                                <label class="wns-form-label"><?php wns_te('smtp_port'); ?></label>
                                 <input type="number" name="wns_smtp_port" value="<?php echo esc_attr($smtp_port); ?>" class="wns-form-input" placeholder="587" />
-                                <div class="wns-form-help">Common ports: 587 (TLS), 465 (SSL), 25 (no encryption)</div>
+                                <div class="wns-form-help"><?php wns_te('smtp_port_help'); ?></div>
                             </div>
                             
                             <div class="wns-form-row">
-                                <label class="wns-form-label">SMTP Username</label>
+                                <label class="wns-form-label"><?php wns_te('smtp_username'); ?></label>
                                 <input type="text" name="wns_smtp_username" value="<?php echo esc_attr($smtp_username); ?>" class="wns-form-input" placeholder="your-email@domain.com" />
-                                <div class="wns-form-help">Your SMTP username (usually your email address)</div>
+                                <div class="wns-form-help"><?php wns_te('smtp_username_help'); ?></div>
                             </div>
                             
                             <div class="wns-form-row">
-                                <label class="wns-form-label">SMTP Password</label>
+                                <label class="wns-form-label"><?php wns_te('smtp_password'); ?></label>
                                 <input type="password" name="wns_smtp_password" value="<?php echo esc_attr($smtp_password_display); ?>" class="wns-form-input" placeholder="Your SMTP password or app password" />
-                                <div class="wns-form-help">Your SMTP password. For Gmail, use an App Password instead of your regular password. Leave unchanged to keep current password. <br><strong>For better security:</strong> Consider defining <code>WNS_SMTP_PASSWORD</code> constant in wp-config.php instead.</div>
+                                <div class="wns-form-help"><?php wns_te('smtp_password_help'); ?></div>
                             </div>
                             
                             <div class="wns-form-row">
-                                <label class="wns-form-label">Encryption</label>
+                                <label class="wns-form-label"><?php wns_te('encryption'); ?></label>
                                 <select name="wns_smtp_encryption" class="wns-form-select">
-                                    <option value="tls" <?php selected($smtp_encryption, 'tls'); ?>>TLS (recommended)</option>
-                                    <option value="ssl" <?php selected($smtp_encryption, 'ssl'); ?>>SSL</option>
-                                    <option value="none" <?php selected($smtp_encryption, 'none'); ?>>None (not recommended)</option>
+                                    <option value="tls" <?php selected($smtp_encryption, 'tls'); ?>><?php wns_te('encryption_tls'); ?></option>
+                                    <option value="ssl" <?php selected($smtp_encryption, 'ssl'); ?>><?php wns_te('encryption_ssl'); ?></option>
+                                    <option value="none" <?php selected($smtp_encryption, 'none'); ?>><?php wns_te('encryption_none'); ?></option>
                                 </select>
-                                <div class="wns-form-help">Encryption method for secure connection. TLS is recommended for most providers.</div>
+                                <div class="wns-form-help"><?php wns_te('encryption_help'); ?></div>
                             </div>
                         </div>
                         
-                        <?php submit_button('Save Configuration', 'primary large wns-button'); ?>
+                        <?php submit_button(wns_t('save_configuration'), 'primary large wns-button'); ?>
                     </form>
                 </div>
                 
                 <div class="wns-divider"></div>
                 
                 <div class="wns-section">
-                    <div class="wns-section-title">Test Email Configuration</div>
+                    <div class="wns-section-title"><?php wns_te('test_email_configuration'); ?></div>
                     <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
                         <input type="hidden" name="action" value="wns_test_email" />
                         <div class="wns-form-row">
-                            <label class="wns-form-label">Test Email Address</label>
+                            <label class="wns-form-label"><?php wns_te('test_email_address'); ?></label>
                             <input type="email" name="test_email" value="<?php echo esc_attr(wp_get_current_user()->user_email); ?>" class="wns-form-input" required />
-                            <div class="wns-form-help">Send a test email to verify your mail configuration is working.</div>
+                            <div class="wns-form-help"><?php wns_te('test_email_help'); ?></div>
                         </div>
-                        <?php submit_button('Send Test Email', 'secondary large wns-button wns-button-secondary'); ?>
+                        <?php submit_button(wns_t('send_test_email'), 'secondary large wns-button wns-button-secondary'); ?>
                     </form>
                 </div>
                 
@@ -2888,16 +3126,16 @@ ${footerHTML}
             <!-- Preview Tab -->
             <div class="wns-tab-content <?php echo $current_tab === 'preview' ? 'active' : ''; ?>">
                 <div class="wns-section">
-                    <div class="wns-section-title">📧 Next Email Preview</div>
+                    <div class="wns-section-title">📧 <?php wns_te('next_email_preview_title'); ?></div>
                     <div class="wns-form-help" style="margin-bottom: 20px;">
-                        This preview shows exactly how your next scheduled newsletter will look with current content from the last 7 days.
+                        <?php wns_te('preview_description'); ?>
                     </div>
                     
                     <div class="wns-preview-controls-section">
                         <button type="button" id="wns-refresh-preview" class="button button-secondary">
-                            🔄 Refresh Preview
+                            🔄 <?php wns_te('refresh_preview'); ?>
                         </button>
-                        <span class="wns-preview-status" style="margin-left: 15px; color: #666;">Loading preview...</span>
+                        <span class="wns-preview-status" style="margin-left: 15px; color: #666;"><?php wns_te('loading_preview'); ?></span>
                     </div>
                     
                     <div id="wns-email-preview-content" class="wns-email-preview-content">
@@ -2970,7 +3208,7 @@ ${footerHTML}
                                 $email_content = '';
                                 try {
                                     // Use the same subject logic as the actual sending function
-                                    $subject = get_option('wns_subject', 'Weekly Newsletter');
+                                    $subject = get_option('wns_subject', wns_t('default_subject'));
                                     // Add date range to subject for uniqueness (matching actual send logic)
                                     if ($date_from_str && $date_to_str) {
                                         $subject .= " (" . date('d.m.Y', strtotime($date_from_str)) . " - " . date('d.m.Y', strtotime($date_to_str)) . ")";
@@ -2992,7 +3230,7 @@ ${footerHTML}
                                         
                                         $email_content = wns_build_email($wpforo_summary, $total_count, $wp_posts);
                                     } else {
-                                        $email_content = '<p>Email builder function not available. Please check plugin configuration.</p>';
+                                        $email_content = '<p>' . wns_t('email_builder_not_available') . '</p>';
                                     }
                                 } catch (Exception $e) {
                                     error_log('[WNS Preview] Email build error: ' . $e->getMessage());
@@ -3031,42 +3269,42 @@ ${footerHTML}
                                 $forum_status = '';
                                 
                                 if (!$include_wp) {
-                                    $wp_status = ' (WordPress posts disabled in settings)';
+                                    $wp_status = ' (' . wns_t('wp_posts_disabled') . ')';
                                 } elseif (empty($wp_posts)) {
-                                    $wp_status = ' (no new posts in this period)';
+                                    $wp_status = ' (' . wns_t('no_new_posts_period') . ')';
                                 }
                                 
                                 if (!$include_forum) {
-                                    $forum_status = ' (Forum posts disabled in settings)';
+                                    $forum_status = ' (' . wns_t('forum_posts_disabled') . ')';
                                 } elseif (empty($wpforo_summary)) {
-                                    $forum_status = ' (no forum activity in this period)';
+                                    $forum_status = ' (' . wns_t('no_forum_activity_period') . ')';
                                 }
                                 ?>
                                 
                                 <div class="wns-preview-meta">
                                     <div class="wns-preview-meta-item">
-                                        <div class="wns-preview-meta-label">Subject Line</div>
+                                        <div class="wns-preview-meta-label"><?php echo wns_t('subject_line'); ?></div>
                                         <div class="wns-preview-meta-value"><?php echo esc_html($subject); ?></div>
                                     </div>
                                     <div class="wns-preview-meta-item">
-                                        <div class="wns-preview-meta-label">Recipients</div>
-                                        <div class="wns-preview-meta-value"><?php echo $recipients_count; ?> users</div>
+                                        <div class="wns-preview-meta-label"><?php echo wns_t('recipients'); ?></div>
+                                        <div class="wns-preview-meta-value"><?php echo $recipients_count; ?> <?php echo wns_t('users'); ?></div>
                                     </div>
                                     <div class="wns-preview-meta-item">
-                                        <div class="wns-preview-meta-label">Content Period</div>
+                                        <div class="wns-preview-meta-label"><?php echo wns_t('content_period'); ?></div>
                                         <div class="wns-preview-meta-value"><?php echo date('M j', strtotime($date_from_str)) . ' - ' . date('M j, Y', strtotime($date_to_str)); ?></div>
                                     </div>
                                     <div class="wns-preview-meta-item">
-                                        <div class="wns-preview-meta-label">WordPress Posts</div>
-                                        <div class="wns-preview-meta-value"><?php echo count($wp_posts); ?> posts<?php echo $wp_status; ?></div>
+                                        <div class="wns-preview-meta-label"><?php echo wns_t('wordpress_posts'); ?></div>
+                                        <div class="wns-preview-meta-value"><?php echo count($wp_posts); ?> <?php echo wns_t('posts'); ?><?php echo $wp_status; ?></div>
                                     </div>
                                     <div class="wns-preview-meta-item">
-                                        <div class="wns-preview-meta-label">Forum Activities</div>
-                                        <div class="wns-preview-meta-value"><?php echo $forum_activity_count; ?> posts in <?php echo count($wpforo_summary); ?> forums<?php echo $forum_status; ?></div>
+                                        <div class="wns-preview-meta-label"><?php echo wns_t('forum_activities'); ?></div>
+                                        <div class="wns-preview-meta-value"><?php echo $forum_activity_count; ?> <?php echo wns_t('posts'); ?> <?php echo wns_t('in'); ?> <?php echo count($wpforo_summary); ?> <?php echo wns_t('forums'); ?><?php echo $forum_status; ?></div>
                                     </div>
                                     <div class="wns-preview-meta-item">
-                                        <div class="wns-preview-meta-label">Scheduled Send</div>
-                                        <div class="wns-preview-meta-value"><?php echo isset($target) ? $target->format('M j, Y H:i') : 'Not calculated'; ?></div>
+                                        <div class="wns-preview-meta-label"><?php echo wns_t('scheduled_send'); ?></div>
+                                        <div class="wns-preview-meta-value"><?php echo isset($target) ? $target->format('M j, Y H:i') : wns_t('not_calculated'); ?></div>
                                     </div>
                                 </div>
                                 <div class="wns-preview-email-content">
@@ -3214,7 +3452,7 @@ ${footerHTML}
                         })
                         .finally(() => {
                             refreshBtn.disabled = false;
-                            refreshBtn.textContent = '� Refresh Preview';
+                            refreshBtn.textContent = 'Refresh Preview';
                         });
                     }
                     
@@ -3230,11 +3468,10 @@ ${footerHTML}
         <div style="border-top: 1px solid #e8e8e8; padding: 24px 80px; background: #f8f8f8; color: #6a6a6a; font-size: 13px; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    Weekly Newsletter Sender v2.0 by <strong>Marep</strong>
+                    <?php wns_te('plugin_footer'); ?>
                 </div>
                 <div>
-                    Need support? Contact: <a href="mailto:support@marep.sk" style="color: #4a4a4a; text-decoration: none;">support@marep.sk</a> | 
-                    <a href="https://marep.sk" target="_blank" style="color: #4a4a4a; text-decoration: none;">marep.sk</a>
+                    <?php wns_te('need_support'); ?>
                 </div>
             </div>
         </div>
@@ -3279,7 +3516,7 @@ add_action('admin_post_wns_test_email', function() {
 add_action('admin_menu', function() {
     // Single top-level menu
     add_menu_page(
-        'Weekly Newsletter', // Page title
+        wns_t('weekly_newsletter_sender'), // Page title
         'Newsletter',        // Menu title
         'manage_options',    // Capability
         'wns-main',         // Menu slug
