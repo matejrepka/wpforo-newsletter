@@ -164,7 +164,7 @@ return [
     'slovak' => 'Slovak',
     
     // Footer
-    'plugin_footer' => 'Weekly Newsletter Sender v2.0 by <strong>Marep</strong>',
+    'plugin_footer' => 'Weekly Newsletter Sender v2.0 by <a href="https://marep.sk" target="_blank" style="color: #4a4a4a; text-decoration: none; font-weight: bold;">Marep</a>',
     'need_support' => 'Need support? Contact: <a href="mailto:support@marep.sk" style="color: #4a4a4a; text-decoration: none;">support@marep.sk</a> | <a href="https://marep.sk" target="_blank" style="color: #4a4a4a; text-decoration: none;">marep.sk</a>',
     
     // Error messages

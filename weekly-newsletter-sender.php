@@ -533,7 +533,7 @@ function wns_generate_email_styles() {
     
     return "
 body {background: {$bg_color}; font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};}
-.content {color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);}
+.content {color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid {$header_color};}
 .email-header {background: {$header_color}; color: #fff; text-align: center; padding: {$content_padding}px;}
 .email-header h1 {margin: 0 !important; padding: 0; border: none;}
 h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom:0.2em; font-size:1.7em; margin-bottom:1em;}
@@ -566,6 +566,7 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
     font-size: 1em;
     font-weight: 600;
     margin-right: 0.6em;
+    margin-left: {$content_padding}px;
 }
 .forum-name {
     font-size: 1.10em;
@@ -581,6 +582,7 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
     font-size: 0.97em;
     font-weight: 600;
     margin-right: 0.6em;
+    margin-left: {$content_padding}px;
 }
 .thread-name {
     font-size: 1.02em;
@@ -588,7 +590,7 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
     color: {$text_color};
 }
 .post-title {
-    font-size: 1.06em;
+    font-size: 1.02em;
     font-weight: 600;
     color: {$text_color};
     margin-bottom: 0.15em;
@@ -664,7 +666,7 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
 
     // --- Otherwise, show normal content ---
     // WordPress posts section
-    if ($include_wp && !empty($wp_posts)) {
+        if ($include_wp && !empty($wp_posts)) {
         // Group posts by first category
         $posts_by_cat = [];
         foreach ($wp_posts as $post) {
@@ -680,7 +682,7 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
             $posts_by_cat[$cat_slug]['posts'][] = $post;
         }
 
-        $message .= '<section class="wp-posts"><h2 class="section-title">Latest Articles from Website</h2>';
+        $message .= '<section class="wp-posts"><h2 class="section-title">'.wns_t('latest_articles_website').'</h2>';
         foreach ($posts_by_cat as $cat) {
             $message .= '<div class="forum-header"><span class="category-label">'.esc_html($cat['cat_name']).'</span></div>';
             foreach ($cat['posts'] as $post) {
@@ -700,10 +702,46 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
         }
         $message .= '</section>';
     }
+        if ($include_wp && !empty($wp_posts)) {
+            // Group posts by first category
+            $posts_by_cat = [];
+            foreach ($wp_posts as $post) {
+                $categories = get_the_category($post->ID);
+                $cat_name = (!empty($categories)) ? $categories[0]->name : 'Uncategorized';
+                $cat_slug = (!empty($categories)) ? $categories[0]->slug : 'uncategorized';
+                if (!isset($posts_by_cat[$cat_slug])) {
+                    $posts_by_cat[$cat_slug] = [
+                        'cat_name' => $cat_name,
+                        'posts' => []
+                    ];
+                }
+                $posts_by_cat[$cat_slug]['posts'][] = $post;
+            }
+
+            $message .= '<section class="wp-posts"><h2 class="section-title">'.wns_t('latest_articles_website').'</h2>';
+            foreach ($posts_by_cat as $cat) {
+                $message .= '<div class="forum-header"><span class="category-label">'.esc_html($cat['cat_name']).'</span></div>';
+                foreach ($cat['posts'] as $post) {
+                    $url = get_permalink($post->ID);
+                    $date = get_the_date('d.m.Y', $post->ID);
+                    $title = esc_html(get_the_title($post->ID));
+                    $excerpt_raw = wp_trim_words(strip_tags($post->post_content), 40, '...');
+                    $excerpt = wns_format_quotes($excerpt_raw);
+
+                    $message .= "<div class='card post-card'>";
+                    $message .= "<div class='post-title'>{$title}</div>";
+                    $message .= "<div class='post-meta'>{$date}</div>";
+                    $message .= "<div class='post-excerpt'>{$excerpt}</div>";
+                    $message .= "<div class='post-readmore'><a href='{$url}'>Read more on website...</a></div>";
+                    $message .= "</div>";
+                }
+            }
+            $message .= '</section>';
+        }
 
     // Forum section
     if ($include_forum && !empty($summary)) {
-        $message .= '<section class="forum-section"><h2 class="section-title">Latest Forum Posts</h2>';
+        $message .= '<section class="forum-section"><h2 class="section-title">'.wns_t('latest_forum_posts').'</h2>';
         foreach ($summary as $forum) {
             $message .= '<div class="forum-header"><span class="category-label">'.wns_t('forum').'</span><span class="forum-name">'.esc_html($forum['forum_name']).'</span></div>';
             foreach ($forum['threads'] as $thread) {
@@ -840,7 +878,7 @@ function wns_build_email($summary, $count, $wp_posts = []) {
             $posts_by_cat[$cat_slug]['posts'][] = $post;
         }
 
-        $message .= '<section class="wp-posts"><h2 class="section-title">Latest Articles from Website</h2>';
+        $message .= '<section class="wp-posts"><h2 class="section-title">'.wns_t('latest_articles_website').'</h2>';
         foreach ($posts_by_cat as $cat) {
             $message .= '<div class="forum-header"><span class="category-label">'.esc_html($cat['cat_name']).'</span></div>';
             foreach ($cat['posts'] as $post) {
@@ -863,7 +901,7 @@ function wns_build_email($summary, $count, $wp_posts = []) {
 
     // Forum section
     if ($include_forum && !empty($summary)) {
-        $message .= '<section class="forum-section"><h2 class="section-title">Latest Forum Posts</h2>';
+        $message .= '<section class="forum-section"><h2 class="section-title">'.wns_t('latest_forum_posts').'</h2>';
         foreach ($summary as $forum) {
             $message .= '<div class="forum-header"><span class="category-label">'.wns_t('forum').'</span><span class="forum-name">'.esc_html($forum['forum_name']).'</span></div>';
             foreach ($forum['threads'] as $thread) {
@@ -889,7 +927,7 @@ function wns_build_email($summary, $count, $wp_posts = []) {
 
     $html_header = "\n<!DOCTYPE html>\n<html>\n<head>\n<title>".wns_t('default_header_title')."</title>\n<meta charset='utf-8' />\n<style>
 " . wns_generate_email_styles() . "
-</style>\n</head>\n<body style='background: {$bg_color}; font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};'>\n<div class='content' style='color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);'>\n";
+</style>\n</head>\n<body style='background: {$bg_color}; font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};'>\n<div class='content' style='color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid {$header_color};'>\n";
     
     // Replace variables in HTML header with actual values
     $html_header = str_replace([
@@ -898,16 +936,17 @@ function wns_build_email($summary, $count, $wp_posts = []) {
         '{$content_padding}', 
         '{$text_color}', 
         '{$line_height}',
-        '{$card_radius}'
+        '{$card_radius}',
+        '{$header_color}'
     ], [
         $bg_color, 
         $font_family, 
         $content_padding, 
         $text_color, 
         $line_height,
-        $card_radius
+        $card_radius,
+        $header_color
     ], $html_header);
-    // Add footer if configured
     if (!empty($footer_text)) {
         $message .= '<div class="email-footer">' . nl2br(esc_html($footer_text)) . '</div>';
     }
@@ -1140,7 +1179,7 @@ function wns_build_demo_email() {
             $excerpt = wns_format_quotes($excerpt_raw);
 
             $message .= "<div class='card post-card'>";
-            $message .= "<div class='post-title'><a href='{$url}'>{$title}</a></div>";
+            $message .= "<div class='post-title'>{$title}</div>";
             $message .= "<div class='post-meta'>{$date}</div>";
             $message .= "<div class='post-excerpt'>{$excerpt}</div>";
             $message .= "<div class='post-readmore'><a href='{$url}'>".wns_t('read_more_website')."</a></div>";
@@ -1163,7 +1202,7 @@ function wns_build_demo_email() {
                 $body = wp_kses_post(wns_format_quotes($post->body));
                 $excerpt_html = wns_truncate_html_words($body, 40, $url);
                 $message .= "<div class='card forum-post'>";
-                $message .= "<div class='post-title'><a href='{$url}'>".esc_html($post->title)."</a></div>";
+                $message .= "<div class='post-title'>".esc_html($post->title)."</div>";
                 $message .= "<div class='post-meta'>{$author} &middot; {$postdate} {$posttime}</div>";
                 $message .= "<div class='post-excerpt'>{$excerpt_html}</div>";
                 $message .= "<div class='post-readmore'><a href='{$url}'>Continue reading on forum...</a></div>";
@@ -1180,7 +1219,7 @@ function wns_build_demo_email() {
 
     $html_header = "<!DOCTYPE html>\n<html>\n<head>\n<title>".wns_t('weekly_newsletter_title')."</title>\n<meta charset='utf-8' />\n<style>
 " . wns_generate_email_styles() . "
-</style>\n</head>\n<body style='background: {$bg_color}; font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};'>\n<div class='content' style='color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);'>\n";
+</style>\n</head>\n<body style='background: {$bg_color}; font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};'>\n<div class='content' style='color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid {$header_color};'>\n";
     
     // Replace variables in HTML header with actual values
     $html_header = str_replace([
@@ -1189,14 +1228,16 @@ function wns_build_demo_email() {
         '{$content_padding}', 
         '{$text_color}', 
         '{$line_height}',
-        '{$card_radius}'
+        '{$card_radius}',
+        '{$header_color}'
     ], [
         $bg_color, 
         $font_family, 
         $content_padding, 
         $text_color, 
         $line_height,
-        $card_radius
+        $card_radius,
+        $header_color
     ], $html_header);
     
     // Apply inline styles for better email client compatibility
@@ -2541,7 +2582,7 @@ function wns_settings_page() {
 <meta charset="utf-8">
 <style>
 body {background: ${settings.backgroundColor}; font-family: ${settings.fontFamily}; margin:0; color: ${settings.textColor}; line-height: ${settings.lineHeight};}
-.content {color: ${settings.textColor}; background:#fff; padding: 0; margin: 0; border-radius: ${settings.cardRadius}px; overflow: hidden; max-width: 700px;}
+.content {color: ${settings.textColor}; background:#fff; padding: 0; margin: 0; border-radius: ${settings.cardRadius}px; overflow: hidden; max-width: 700px; border: 1px solid ${settings.headerColor};}
 .email-header {background: ${settings.headerColor}; color: #fff; text-align: center; padding: ${settings.contentPadding}px;}
 .email-header h1 {margin: 0 !important; padding: 0; border: none;}
 h1 {color: ${settings.textColor}; border-bottom:2px solid ${settings.cardBorderColor}; padding-bottom:0.2em; font-size:1.7em; margin-bottom:1em;}
@@ -2554,7 +2595,7 @@ h1 {color: ${settings.textColor}; border-bottom:2px solid ${settings.cardBorderC
 .forum-name {font-size: 1.10em; font-weight: bold; color: ${settings.textColor};}
 .topic-label {color: #fff; background: ${settings.accentColor}; display: inline-block; padding: 0.13em 0.6em; border-radius: 6px; font-size: 0.97em; font-weight: 600; margin-right: 0.6em;}
 .thread-name {font-size: 1.02em; font-weight: bold; color: ${settings.textColor};}
-.post-title {font-size: 1.06em; font-weight: 600; color: ${settings.textColor}; margin-bottom: 0.15em;}
+.post-title {font-size: 1.02em; font-weight: 600; color: ${settings.textColor}; margin-bottom: 0.15em;}
 .post-title a {color: ${settings.textColor}; text-decoration: none;}
 .post-meta {color: ${settings.metaColor}; font-size: 0.95em; margin-bottom: 0.3em;}
 .post-excerpt {color: ${settings.textColor}; font-size: 1em; margin-bottom: 0.7em; margin-top: 0.1em; line-height: ${settings.lineHeight};}
@@ -2826,7 +2867,7 @@ ${footerHTML}
 <meta charset="utf-8">
 <style>
 body {background: ${values.backgroundColor}; font-family: ${values.fontFamily}; margin:0; padding:${values.contentPadding}px; color: ${values.textColor}; line-height: ${values.lineHeight};}
-.content {color: ${values.textColor}; background:#fff; padding: 0; margin: 0 auto; border-radius: ${values.cardRadius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2);}
+.content {color: ${values.textColor}; background:#fff; padding: 0; margin: 0 auto; border-radius: ${values.cardRadius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid ${values.headerColor};}
 .email-header {background: ${values.headerColor}; color: #fff; text-align: center; padding: ${values.contentPadding}px;}
 .email-header h1 {margin: 0 !important; padding: 0; border: none;}
 h1 {color: ${values.textColor}; border-bottom:2px solid ${values.cardBorderColor}; padding-bottom:0.2em; font-size:1.7em; margin-bottom:1em;}
@@ -2881,7 +2922,7 @@ h1 {color: ${values.textColor}; border-bottom:2px solid ${values.cardBorderColor
     color: ${values.textColor};
 }
 .post-title {
-    font-size: 1.06em;
+    font-size: 1.02em;
     font-weight: 600;
     color: ${values.textColor};
     margin-bottom: 0.15em;
