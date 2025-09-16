@@ -2067,7 +2067,33 @@ function wns_settings_page() {
             </div>
         </div>
         
-
+        <?php if (!empty($notification)): ?>
+            <div class="wns-notification <?php echo esc_attr($notification_type); ?> auto-hide">
+                <span class="wns-notification-icon">
+                    <?php if ($notification_type === 'success'): ?>
+                        ✓
+                    <?php elseif ($notification_type === 'error'): ?>
+                        ⚠
+                    <?php endif; ?>
+                </span>
+                <span class="wns-notification-message"><?php echo esc_html($notification); ?></span>
+            </div>
+        <?php endif; ?>
+        
+        <script>
+            // Clean URL to prevent notification from showing again on refresh
+            if (window.history.replaceState) {
+                let url = window.location.href;
+                url = url.replace(/[?&]wns_sent=1/, '');
+                url = url.replace(/[?&]test_sent=1/, '');
+                url = url.replace(/[?&]test_failed=1/, '');
+                // Clean up any remaining query parameters if URL ends with ? or &
+                url = url.replace(/[?&]$/, '');
+                if (url !== window.location.href) {
+                    window.history.replaceState(null, null, url);
+                }
+            }
+        </script>
         
         <!-- Language Selection Section -->
         <div class="wns-language-section">
@@ -2125,35 +2151,6 @@ function wns_settings_page() {
                 });
             });
         });
-        </script>
-
-
-        <?php if (!empty($notification)): ?>
-            <div class="wns-notification <?php echo esc_attr($notification_type); ?> auto-hide">
-                <span class="wns-notification-icon">
-                    <?php if ($notification_type === 'success'): ?>
-                        ✓
-                    <?php elseif ($notification_type === 'error'): ?>
-                        ⚠
-                    <?php endif; ?>
-                </span>
-                <span class="wns-notification-message"><?php echo esc_html($notification); ?></span>
-            </div>
-        <?php endif; ?>
-        
-        <script>
-            // Clean URL to prevent notification from showing again on refresh
-            if (window.history.replaceState) {
-                let url = window.location.href;
-                url = url.replace(/[?&]wns_sent=1/, '');
-                url = url.replace(/[?&]test_sent=1/, '');
-                url = url.replace(/[?&]test_failed=1/, '');
-                // Clean up any remaining query parameters if URL ends with ? or &
-                url = url.replace(/[?&]$/, '');
-                if (url !== window.location.href) {
-                    window.history.replaceState(null, null, url);
-                }
-            }
         </script>
         
         <style>

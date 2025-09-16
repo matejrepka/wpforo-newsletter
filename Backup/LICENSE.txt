@@ -1,0 +1,102 @@
+PROPRIETARY SOFTWARE LICENSE
+
+Weekly Newsletter Sender WordPress Plugin
+Copyright (c) 2025 Marep (marep.sk)
+
+All Rights Reserved
+
+IMPORTANT: READ CAREFULLY BEFORE INSTALLATION OR USE
+
+This software is proprietary and confidential. By installing, copying, or otherwise 
+using this software, you acknowledge that you have read this license agreement 
+and agree to be bound by its terms.
+
+GRANT OF LICENSE
+
+Subject to the terms of this Agreement, Marep grants you a non-exclusive, 
+non-transferable, limited license to:
+
+1. Install and use the Software on websites that you own or control
+2. Use the Software for its intended purpose of sending weekly newsletters
+3. Make backup copies for archival purposes only
+
+RESTRICTIONS
+
+You may NOT:
+
+1. Modify, adapt, alter, translate, or create derivative works of the Software
+2. Reverse engineer, disassemble, decompile, or otherwise attempt to derive 
+   the source code of the Software
+3. Remove, alter, or obscure any copyright, trademark, or other proprietary 
+   rights notices
+4. Distribute, sublicense, rent, lease, or otherwise transfer the Software 
+   to any third party
+5. Use the Software for any illegal or unauthorized purpose
+6. Circumvent any security measures or access controls
+7. Use the Software to send spam or unsolicited communications
+
+INTELLECTUAL PROPERTY
+
+The Software and all intellectual property rights therein are and shall remain 
+the exclusive property of Marep. This license does not grant you any rights 
+to patents, copyrights, trade secrets, trademarks, or any other rights in 
+respect to the Software.
+
+SECURITY AND INTEGRITY
+
+This Software includes built-in security features designed to:
+- Monitor file integrity and detect unauthorized modifications
+- Protect against tampering and reverse engineering
+- Ensure proper licensing compliance
+
+Any attempt to circumvent these security measures constitutes a material 
+breach of this license and may result in immediate termination of your 
+license rights.
+
+SUPPORT AND UPDATES
+
+- Support is provided at the discretion of Marep
+- Updates and bug fixes may be provided but are not guaranteed
+- This license does not entitle you to future versions or updates
+
+DISCLAIMER OF WARRANTIES
+
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. MAREP 
+DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO 
+THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND 
+NON-INFRINGEMENT.
+
+LIMITATION OF LIABILITY
+
+IN NO EVENT SHALL MAREP BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, 
+CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION, DAMAGES 
+FOR LOSS OF PROFITS, DATA, OR USE, INCURRED BY YOU OR ANY THIRD PARTY, 
+WHETHER IN AN ACTION IN CONTRACT OR TORT, EVEN IF MAREP HAS BEEN ADVISED 
+OF THE POSSIBILITY OF SUCH DAMAGES.
+
+TERMINATION
+
+This license is effective until terminated. Your rights under this license 
+will terminate automatically without notice if you fail to comply with any 
+term of this Agreement. Upon termination, you must cease all use of the 
+Software and destroy all copies.
+
+GOVERNING LAW
+
+This Agreement shall be governed by and construed in accordance with the 
+laws of Slovakia, without regard to its conflict of law principles.
+
+CONTACT INFORMATION
+
+For licensing inquiries, support, or legal matters:
+- Developer: Marep
+- Website: https://marep.sk
+- Email: support@marep.sk
+
+ACKNOWLEDGMENT
+
+By installing or using this software, you acknowledge that you have read 
+this license agreement, understand it, and agree to be bound by its terms 
+and conditions.
+
+Last updated: September 14, 2025
