@@ -272,4 +272,7 @@ return [
     'settings_saved' => 'Settings saved successfully!',
     'test_email_sent_success' => 'Test email sent successfully!',
     'test_email_send_failed' => 'Test email failed to send. Please check your configuration.'
+    ,
+    // Reply label for forum replies
+    'reply_label' => 'Reply',
 ];

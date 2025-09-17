@@ -607,6 +607,17 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
     font-size: 0.95em;
     margin-bottom: 0.3em;
 }
+/* For forum posts we want author/date to use the title style so it stands out
+   (the post title itself will not be displayed in forum cards). */
+.forum-post .post-meta {
+    color: {$text_color};
+    font-size: 1.02em;
+    font-weight: 600;
+    margin-bottom: 0.3em;
+}
+
+/* Reply label + icon - subtle gray to avoid distracting from content */
+.reply-label { color: #777777; font-size: 0.95em; font-weight:600; margin-bottom:0.15em; display:inline-block; }
 .post-excerpt {
     color: {$text_color};
     font-size: 1em;
@@ -758,11 +769,27 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
                     $postdate = date('d.m.Y', strtotime($post->created));
                     $posttime = date('H:i', strtotime($post->created));
                     $author = isset($post->userid) ? esc_html(get_the_author_meta('display_name', $post->userid)) : '';
+                    // Ensure we have a text color for inline styles in preview builder
+                    $text_color = get_option('wns_email_text_color', '#333333');
                     $body = wp_kses_post(wns_format_quotes($post->body));
                     $excerpt_html = wns_truncate_html_words($body, WNS_EXCERPT_WORDS, $url);
                     $message .= "<div class='card forum-post'>";
-                    $message .= "<div class='post-title'>".esc_html($post->title)."</div>";
-                    $message .= "<div class='post-meta'>{$author} &middot; {$postdate} {$posttime}</div>";
+                    $post_title_raw = trim((string)$post->title);
+                    $is_reply = false;
+                    if (empty($post_title_raw)) {
+                        $is_reply = true;
+                    } else {
+                        if (preg_match('/^RE\s*[:\-]/i', $post_title_raw) || preg_match('/^RE\s+/i', $post_title_raw)) {
+                            $is_reply = true;
+                        }
+                    }
+                    if ($is_reply) {
+                        // Only show the localized Reply label (no icon)
+                        $message .= "<div class='reply-label'>" . esc_html(wns_t('reply_label', 'Reply')) . "</div>";
+                    }
+                    // Inline style for post-meta so preview shows bold/colored text reliably
+                    $meta_inline = 'style="color: ' . esc_attr($text_color) . '; font-weight:600; font-size:1.02em; margin-bottom:0.3em;"';
+                    $message .= "<div class='post-meta' {$meta_inline}>" . ($author ? esc_html($author) . ' &middot; ' : '') . "{$postdate} {$posttime}</div>";
                     $message .= "<div class='post-excerpt'>{$excerpt_html}</div>";
                     $message .= "<div class='post-readmore'><a href='{$url}'>Read more on forum...</a></div>";
                     $message .= "</div>";
@@ -920,12 +947,30 @@ function wns_build_email($summary, $count, $wp_posts = []) {
                     $author = isset($post->userid) ? esc_html(get_the_author_meta('display_name', $post->userid)) : '';
                     $body = wp_kses_post(wns_format_quotes($post->body));
                     $excerpt_html = wns_truncate_html_words($body, WNS_EXCERPT_WORDS, $url);
-                    $message .= "<div class='card forum-post'>";
-                    $message .= "<div class='post-title'>".esc_html($post->title)."</div>";
-                    $message .= "<div class='post-meta'>{$author} &middot; {$postdate} {$posttime}</div>";
-                    $message .= "<div class='post-excerpt'>{$excerpt_html}</div>";
-                    $message .= "<div class='post-readmore'><a href='{$url}'>".wns_t('read_more_forum')."</a></div>";
-                    $message .= "</div>";
+                        $message .= "<div class='card forum-post'>";
+                        // Determine if this post is a reply. Many forum systems prefix replies with 'RE:' or leave title empty.
+                        $post_title_raw = trim((string)$post->title);
+                        $is_reply = false;
+                        if (empty($post_title_raw)) {
+                            $is_reply = true;
+                        } else {
+                            // Case-insensitive check for RE: prefix
+                            if (preg_match('/^RE\s*[:\-]/i', $post_title_raw) || preg_match('/^RE\s+/i', $post_title_raw)) {
+                                $is_reply = true;
+                            }
+                        }
+
+                        if ($is_reply) {
+                            // Only show the localized Reply label (no icon)
+                            $message .= "<div class='reply-label'>" . esc_html(wns_t('reply_label', 'Reply')) . "</div>";
+                        }
+
+                        // Inline style for post-meta so preview shows bold/colored text reliably
+                        $meta_inline = 'style="color: ' . esc_attr($text_color) . '; font-weight:600; font-size:1.02em; margin-bottom:0.3em;"';
+                        $message .= "<div class='post-meta' {$meta_inline}>" . ($author ? esc_html($author) . ' &middot; ' : '') . "{$postdate} {$posttime}</div>";
+                        $message .= "<div class='post-excerpt'>{$excerpt_html}</div>";
+                        $message .= "<div class='post-readmore'><a href='{$url}'>".wns_t('read_more_forum')."</a></div>";
+                        $message .= "</div>";
                 }
             }
         }

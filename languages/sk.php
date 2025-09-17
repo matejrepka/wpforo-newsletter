@@ -258,6 +258,8 @@ return [
     'card_border_radius_label' => 'Zaoblenie okrajov kariet',
     'card_border_radius_help' => 'Zaoblenie rohov kariet.',
     'line_height_label' => 'Výška riadku',
+    // Reply label for forum replies
+    'reply_label' => 'Odpoveď',
     'line_height_help' => 'Rozostup medzi riadkami textu.',
     'font_family_label' => 'Písmo',
     'font_family_help' => 'Typ písma pre text emailu.',
