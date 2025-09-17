@@ -1271,10 +1271,21 @@ function wns_send_newsletter($manual_override = false) {
             $target->setTime((int)$time_parts[0], (int)$time_parts[1]);
             
             $now = new DateTime('now', $timezone);
-            // For actual sending we want the most recent scheduled send (<= now).
-            // If 'this <send_day>' resolves to a future time (later this week), use the previous week's scheduled time.
-            if ($target > $now) {
-                $target->modify('-1 week');
+            // Manual send should use the configured scheduled send range (matching preview behavior)
+            // which corresponds to the next scheduled send (in the future). Automatic/cron
+            // sends should use the most recent scheduled send (in the past or now).
+            if (!empty($manual_override)) {
+                // For manual sends: if the configured target is in the past, move to next week
+                // so we use the upcoming scheduled range (consistent with preview).
+                if ($target < $now) {
+                    $target->modify('+1 week');
+                }
+            } else {
+                // For automatic sends: if the configured target is in the future, use previous week
+                // so that the send covers the most recent completed period.
+                if ($target > $now) {
+                    $target->modify('-1 week');
+                }
             }
             
             // Date range should be 7 days before the scheduled send
@@ -2609,9 +2620,10 @@ function wns_settings_page() {
                 
                 <div class="wns-divider"></div>
                 
-                <div class="wns-section">
+                    <div class="wns-section">
                     <div class="wns-section-title"><?php wns_te('manual_send'); ?></div>
                     <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
+                        <?php wp_nonce_field('wns_manual_send_action', 'wns_manual_send_nonce'); ?>
                         <input type="hidden" name="action" value="wns_manual_send" />
                         <?php submit_button(wns_t('send_newsletter_now'), 'secondary large wns-button wns-button-secondary'); ?>
                     </form>
@@ -3764,16 +3776,25 @@ ${footerHTML}
 
 // Manual send handler - only trigger when button is clicked and on correct admin page
 add_action('admin_post_wns_manual_send', function() {
-    if (current_user_can('manage_options')) {
-        wns_send_newsletter(true);
-        // Add persistent notice scoped to the tab from referer
-        $redirect = wp_get_referer();
-        $tab = wns_get_tab_from_url($redirect);
-        wns_add_admin_notice('newsletter_sent_manually', 'success', '', $tab);
-        if (!$redirect) $redirect = admin_url('admin.php?page=wns-main');
-        wp_redirect($redirect);
-        exit;
+    if (!current_user_can('manage_options')) {
+        wp_die(wns_t('insufficient_permissions'));
     }
+
+    // Verify nonce
+    if (!isset($_POST['wns_manual_send_nonce']) || !wp_verify_nonce($_POST['wns_manual_send_nonce'], 'wns_manual_send_action')) {
+        wp_die(wns_t('invalid_nonce'));
+    }
+
+    // Trigger manual send using the configured date range (manual override flag = true)
+    wns_send_newsletter(true);
+
+    // Add persistent notice scoped to the tab from referer
+    $redirect = wp_get_referer();
+    $tab = wns_get_tab_from_url($redirect);
+    wns_add_admin_notice('newsletter_sent_manually', 'success', '', $tab);
+    if (!$redirect) $redirect = admin_url('admin.php?page=wns-main');
+    wp_redirect($redirect);
+    exit;
 });
 
 // Test email handler
