@@ -562,6 +562,7 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
     align-items: center;
     margin-top: 1.2em;
     margin-bottom: 0.7em;
+    margin-left: {$content_padding}px;
 }
 .category-label {
     color: #fff;
@@ -572,7 +573,6 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
     font-size: 1em;
     font-weight: 600;
     margin-right: 0.6em;
-    margin-left: {$content_padding}px;
 }
 .forum-name {
     font-size: 1.10em;
@@ -588,7 +588,6 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
     font-size: 0.97em;
     font-weight: 600;
     margin-right: 0.6em;
-    margin-left: {$content_padding}px;
 }
 .thread-name {
     font-size: 1.02em;
@@ -2881,7 +2880,7 @@ h1 {color: ${settings.textColor}; border-bottom:2px solid ${settings.cardBorderC
 .intro {font-size: 1.25em; margin: 1.5em ${settings.contentPadding}px 1.2em; color: ${settings.textColor};}
 .card {background: ${settings.cardBgColor}; border: 1px solid ${settings.cardBorderColor}; border-radius: ${settings.cardRadius}px; margin: 0 ${settings.contentPadding}px 1.5em; padding: ${settings.contentPadding}px; box-sizing: border-box;}
 .wp-posts, .forum-section {margin-bottom: 2em; padding: 0 ${settings.contentPadding}px;}
-.forum-header, .thread-header {display: flex; align-items: center; margin-top: 1.2em; margin-bottom: 0.7em;}
+.forum-header, .thread-header {display: flex; align-items: center; margin-top: 1.2em; margin-bottom: 0.7em; margin-left: ${settings.contentPadding}px;}
 .category-label {color: #fff; background: ${settings.headerColor}; display: inline-block; padding: 0.18em 0.7em; border-radius: 6px; font-size: 1em; font-weight: 600; margin-right: 0.6em;}
 .forum-name {font-size: 1.10em; font-weight: bold; color: ${settings.textColor};}
 .topic-label {color: #fff; background: ${settings.accentColor}; display: inline-block; padding: 0.13em 0.6em; border-radius: 6px; font-size: 0.97em; font-weight: 600; margin-right: 0.6em;}
@@ -3175,6 +3174,7 @@ h1 {color: ${values.textColor}; border-bottom:2px solid ${values.cardBorderColor
     align-items: center;
     margin-top: 1.2em;
     margin-bottom: 0.7em;
+    margin-left: ${values.contentPadding}px;
 }
 .category-label {
     color: #fff;
