@@ -42,6 +42,11 @@ if (!defined('WNS_PLUGIN_FILE')) {
     define('WNS_PLUGIN_FILE', __FILE__);
 }
 
+// Default excerpt length (words) used in newsletters. Change this to show more/less text.
+if (!defined('WNS_EXCERPT_WORDS')) {
+    define('WNS_EXCERPT_WORDS', 80);
+}
+
 // Language system
 $wns_translations = array();
 
@@ -691,7 +696,7 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
                 $url = get_permalink($post->ID);
                 $date = get_the_date('d.m.Y', $post->ID);
                 $title = esc_html(get_the_title($post->ID));
-                $excerpt_raw = wp_trim_words(strip_tags($post->post_content), 40, '...');
+                $excerpt_raw = wp_trim_words(strip_tags($post->post_content), WNS_EXCERPT_WORDS, '...');
                 $excerpt = wns_format_quotes($excerpt_raw);
 
                 $message .= "<div class='card post-card'>";
@@ -727,7 +732,7 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
                     $url = get_permalink($post->ID);
                     $date = get_the_date('d.m.Y', $post->ID);
                     $title = esc_html(get_the_title($post->ID));
-                    $excerpt_raw = wp_trim_words(strip_tags($post->post_content), 40, '...');
+                    $excerpt_raw = wp_trim_words(strip_tags($post->post_content), WNS_EXCERPT_WORDS, '...');
                     $excerpt = wns_format_quotes($excerpt_raw);
 
                     $message .= "<div class='card post-card'>";
@@ -754,7 +759,7 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
                     $posttime = date('H:i', strtotime($post->created));
                     $author = isset($post->userid) ? esc_html(get_the_author_meta('display_name', $post->userid)) : '';
                     $body = wp_kses_post(wns_format_quotes($post->body));
-                    $excerpt_html = wns_truncate_html_words($body, 40, $url);
+                    $excerpt_html = wns_truncate_html_words($body, WNS_EXCERPT_WORDS, $url);
                     $message .= "<div class='card forum-post'>";
                     $message .= "<div class='post-title'>".esc_html($post->title)."</div>";
                     $message .= "<div class='post-meta'>{$author} &middot; {$postdate} {$posttime}</div>";
@@ -887,7 +892,7 @@ function wns_build_email($summary, $count, $wp_posts = []) {
                 $url = get_permalink($post->ID);
                 $date = get_the_date('d.m.Y', $post->ID);
                 $title = esc_html(get_the_title($post->ID));
-                $excerpt_raw = wp_trim_words(strip_tags($post->post_content), 40, '...');
+                $excerpt_raw = wp_trim_words(strip_tags($post->post_content), WNS_EXCERPT_WORDS, '...');
                 $excerpt = wns_format_quotes($excerpt_raw);
 
                 $message .= "<div class='card post-card'>";
@@ -914,7 +919,7 @@ function wns_build_email($summary, $count, $wp_posts = []) {
                     $posttime = date('H:i', strtotime($post->created));
                     $author = isset($post->userid) ? esc_html(get_the_author_meta('display_name', $post->userid)) : '';
                     $body = wp_kses_post(wns_format_quotes($post->body));
-                    $excerpt_html = wns_truncate_html_words($body, 40, $url);
+                    $excerpt_html = wns_truncate_html_words($body, WNS_EXCERPT_WORDS, $url);
                     $message .= "<div class='card forum-post'>";
                     $message .= "<div class='post-title'>".esc_html($post->title)."</div>";
                     $message .= "<div class='post-meta'>{$author} &middot; {$postdate} {$posttime}</div>";
@@ -1177,7 +1182,7 @@ function wns_build_demo_email() {
             $url = wns_get_demo_post_permalink($post->ID);
             $date = date('M j, Y', strtotime($post->post_date));
             $title = esc_html($post->post_title);
-            $excerpt_raw = wp_trim_words(strip_tags($post->post_content), 40, '...');
+            $excerpt_raw = wp_trim_words(strip_tags($post->post_content), WNS_EXCERPT_WORDS, '...');
             $excerpt = wns_format_quotes($excerpt_raw);
 
             $message .= "<div class='card post-card'>";
@@ -1202,7 +1207,7 @@ function wns_build_demo_email() {
                 $posttime = date('H:i', strtotime($post->created));
                 $author = wns_get_demo_author_name($post->userid);
                 $body = wp_kses_post(wns_format_quotes($post->body));
-                $excerpt_html = wns_truncate_html_words($body, 40, $url);
+                $excerpt_html = wns_truncate_html_words($body, WNS_EXCERPT_WORDS, $url);
                 $message .= "<div class='card forum-post'>";
                 $message .= "<div class='post-title'>".esc_html($post->title)."</div>";
                 $message .= "<div class='post-meta'>{$author} &middot; {$postdate} {$posttime}</div>";
@@ -1441,30 +1446,40 @@ function wns_get_admin_notices() {
     return $notices;
 }
 
-function wns_get_tab_from_url($url) {
-    if (empty($url)) return '';
-    $parts = parse_url($url);
-    if (empty($parts['query'])) return '';
-    parse_str($parts['query'], $qs);
-    if (isset($qs['tab'])) return sanitize_text_field($qs['tab']);
-    return '';
-}
-
-function wns_add_admin_notice($message_key, $type = 'success', $message_text = '', $tab = '', $meta = []) {
+/**
+ * Add a persistent admin notice stored in options
+ * @param string $message_key - translation key or identifier
+ * @param string $type - 'success'|'error'|'info'
+ * @param string $message_text - optional explicit text
+ * @param string $tab - optional admin tab to scope the notice to
+ * @param array $meta - optional meta flags (e.g. preserve_on_reload)
+ */
+function wns_add_admin_notice($message_key, $type = 'info', $message_text = '', $tab = '', $meta = []) {
     $notices = wns_get_admin_notices();
-    $id = uniqid('wns_');
+    $id = uniqid('wns_notice_');
     $notices[$id] = [
         'id' => $id,
         'key' => $message_key,
         'type' => $type,
         'text' => $message_text,
-        'tab' => $tab, // optional: restrict notice to a specific admin tab/page
+        'tab' => $tab,
         'meta' => is_array($meta) ? $meta : [],
         'timestamp' => time(),
     ];
     update_option('wns_admin_notices', $notices);
     return $id;
 }
+
+function wns_get_tab_from_url($url) {
+    if (empty($url)) return '';
+    $parts = parse_url($url);
+    if (isset($parts['query'])) {
+        parse_str($parts['query'], $query);
+        if (isset($query['tab'])) return sanitize_text_field($query['tab']);
+    }
+    return '';
+}
+
 
 function wns_remove_admin_notice($id) {
     $notices = wns_get_admin_notices();
