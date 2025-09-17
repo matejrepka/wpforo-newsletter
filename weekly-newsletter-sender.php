@@ -370,8 +370,10 @@ function wns_build_subject($target_date = null) {
             $target->setTime((int)$time_parts[0], (int)$time_parts[1]);
             
             $now = new DateTime('now', $timezone);
-            if ($target < $now) {
-                $target->modify('+1 week');
+            // Ensure $target represents the most recent scheduled send at or before now.
+            // If 'this <day>' resolves to a future date (later this week), go back one week.
+            if ($target > $now) {
+                $target->modify('-1 week');
             }
             
             $date_str = $target->format('F j, Y');
@@ -1269,8 +1271,10 @@ function wns_send_newsletter($manual_override = false) {
             $target->setTime((int)$time_parts[0], (int)$time_parts[1]);
             
             $now = new DateTime('now', $timezone);
-            if ($target < $now) {
-                $target->modify('+1 week');
+            // For actual sending we want the most recent scheduled send (<= now).
+            // If 'this <send_day>' resolves to a future time (later this week), use the previous week's scheduled time.
+            if ($target > $now) {
+                $target->modify('-1 week');
             }
             
             // Date range should be 7 days before the scheduled send
@@ -1300,9 +1304,9 @@ function wns_send_newsletter($manual_override = false) {
     $count = 0;
     if ($include_forum) foreach ($summary as $forum) foreach ($forum['threads'] as $thread) $count += count($thread['posts']);
     if ($include_wp) $count += count($wp_posts);
+    // Build and send the actual email for the current period
     $email_content = wns_build_email($summary, $count, $wp_posts);
     $subject = get_option('wns_subject');
-    // Pridaj dátumový rozsah do predmetu pre unikátne
     if ($date_from && $date_to) {
         $subject .= " (" . date('d.m.Y', strtotime($date_from)) . " - " . date('d.m.Y', strtotime($date_to)) . ")";
     }
@@ -1326,6 +1330,41 @@ function wns_send_newsletter($manual_override = false) {
     $log .= "[WNS] Newsletter send finished. Recipients: $sent_count, Posts: $count, Date range: $date_from to $date_to\n";
     if (defined('WP_DEBUG') && WP_DEBUG) {
         error_log($log);
+    }
+
+    // --- Prepare next scheduled send date/time and next email content (do NOT send) ---
+    try {
+        $send_day = get_option('wns_send_day', 'monday');
+        $send_time = get_option('wns_send_time', '08:00');
+        $timezone = wp_timezone();
+        $next = new DateTime('now', $timezone);
+        $target = new DateTime('this ' . $send_day, $timezone);
+        $time_parts = explode(':', $send_time);
+        $target->setTime((int)$time_parts[0], (int)$time_parts[1]);
+        if ($target < $next) {
+            $target->modify('+1 week');
+        }
+        // Save next scheduled send date/time
+        update_option('wns_next_scheduled_send', $target->format('Y-m-d H:i:s'));
+
+        // Prepare next email content (date range for next period)
+        $date_to_obj = clone $target;
+        $date_to_obj->modify('-1 day');
+        $date_from_obj = clone $date_to_obj;
+        $date_from_obj->modify('-6 days');
+        $date_from_next = $date_from_obj->format('Y-m-d');
+        $date_to_next = $date_to_obj->format('Y-m-d');
+        $include_forum = get_option('wns_include_forum', 1);
+        $include_wp = get_option('wns_include_wp', 1);
+        $summary_next = $include_forum ? wns_get_wpforo_summary($date_from_next, $date_to_next) : [];
+        $wp_posts_next = $include_wp ? wns_get_wp_posts_summary($date_from_next, $date_to_next) : [];
+        $count_next = 0;
+        if ($include_forum) foreach ($summary_next as $forum) foreach ($forum['threads'] as $thread) $count_next += count($thread['posts']);
+        if ($include_wp) $count_next += count($wp_posts_next);
+        $next_email_content = wns_build_email($summary_next, $count_next, $wp_posts_next);
+        update_option('wns_next_email_content', $next_email_content);
+    } catch (Exception $e) {
+        error_log('[WNS] Error preparing next email content: ' . $e->getMessage());
     }
 }
 
