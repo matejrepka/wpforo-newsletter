@@ -1423,6 +1423,95 @@ function wns_send_email_smtp($to, $subject, $message, $headers = []) {
     return $result;
 }
 
+// --- ADMIN NOTICE HELPERS ---
+function wns_get_admin_notices() {
+    $notices = get_option('wns_admin_notices', []);
+    if (!is_array($notices)) $notices = [];
+    return $notices;
+}
+
+function wns_get_tab_from_url($url) {
+    if (empty($url)) return '';
+    $parts = parse_url($url);
+    if (empty($parts['query'])) return '';
+    parse_str($parts['query'], $qs);
+    if (isset($qs['tab'])) return sanitize_text_field($qs['tab']);
+    return '';
+}
+
+function wns_add_admin_notice($message_key, $type = 'success', $message_text = '', $tab = '', $meta = []) {
+    $notices = wns_get_admin_notices();
+    $id = uniqid('wns_');
+    $notices[$id] = [
+        'id' => $id,
+        'key' => $message_key,
+        'type' => $type,
+        'text' => $message_text,
+        'tab' => $tab, // optional: restrict notice to a specific admin tab/page
+        'meta' => is_array($meta) ? $meta : [],
+        'timestamp' => time(),
+    ];
+    update_option('wns_admin_notices', $notices);
+    return $id;
+}
+
+function wns_remove_admin_notice($id) {
+    $notices = wns_get_admin_notices();
+    if (isset($notices[$id])) {
+        unset($notices[$id]);
+        update_option('wns_admin_notices', $notices);
+        return true;
+    }
+    return false;
+}
+
+// AJAX handler to dismiss admin notice
+add_action('wp_ajax_wns_dismiss_admin_notice', function() {
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('no_permission', 403);
+    }
+
+    $removed = [];
+    $errors = [];
+
+    // Support single id or multiple ids via ids[] or JSON string
+    $ids = [];
+    if (isset($_POST['id'])) {
+        $ids[] = sanitize_text_field($_POST['id']);
+    }
+    if (isset($_POST['ids']) && is_array($_POST['ids'])) {
+        foreach ($_POST['ids'] as $i) $ids[] = sanitize_text_field($i);
+    }
+    // If raw body JSON with ids
+    if (empty($ids)) {
+        $raw = file_get_contents('php://input');
+        if ($raw) {
+            $json = json_decode($raw, true);
+            if ($json && isset($json['ids']) && is_array($json['ids'])) {
+                foreach ($json['ids'] as $i) $ids[] = sanitize_text_field($i);
+            }
+        }
+    }
+
+    if (empty($ids)) {
+        wp_send_json_error('missing_id', 400);
+    }
+
+    foreach ($ids as $id) {
+        if (wns_remove_admin_notice($id)) {
+            $removed[] = $id;
+        } else {
+            $errors[] = $id;
+        }
+    }
+
+    if (!empty($removed)) {
+        wp_send_json_success(['removed' => $removed, 'errors' => $errors]);
+    }
+
+    wp_send_json_error(['removed' => $removed, 'errors' => $errors], 404);
+});
+
 // --- SETTINGS PAGE ---
 function wns_register_settings() {
     add_option('wns_subject', wns_t('default_subject', 'Weekly Newsletter'));
@@ -1525,20 +1614,13 @@ function wns_settings_page() {
     
     $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'settings';
     
-    // Handle notifications
-    $notification = '';
-    $notification_type = '';
-    if (isset($_GET['wns_sent']) && $_GET['wns_sent'] == '1') {
-        $notification = wns_t('newsletter_sent_manually');
-        $notification_type = 'success';
-    }
-    if (isset($_GET['test_sent']) && $_GET['test_sent'] == '1') {
-        $notification = wns_t('test_email_sent_success');
-        $notification_type = 'success';
-    }
-    if (isset($_GET['test_failed']) && $_GET['test_failed'] == '1') {
-        $notification = wns_t('test_email_send_failed');
-        $notification_type = 'error';
+    // Persistent admin notices are stored in option 'wns_admin_notices'
+    // We'll render stored notices below and allow dismiss via AJAX.
+    // If the settings page was just saved by WordPress (settings-updated), add a persistent notice.
+    if (isset($_GET['settings-updated']) && $_GET['settings-updated'] === 'true') {
+        // Add a persistent notice for settings saved (scoped to current tab)
+        $current_tab_for_notice = $current_tab;
+    wns_add_admin_notice('settings_saved', 'success', '', $current_tab_for_notice, ['preserve_on_reload' => true]);
     }
     
     $date_range_type = get_option('wns_date_range_type', 'week');
@@ -2167,33 +2249,150 @@ function wns_settings_page() {
         </script>
 
 
-        <?php if (!empty($notification)): ?>
-            <div class="wns-notification <?php echo esc_attr($notification_type); ?> auto-hide">
-                <span class="wns-notification-icon">
-                    <?php if ($notification_type === 'success'): ?>
-                        ✓
-                    <?php elseif ($notification_type === 'error'): ?>
-                        ⚠
-                    <?php endif; ?>
-                </span>
-                <span class="wns-notification-message"><?php echo esc_html($notification); ?></span>
+        <?php
+        // Render persistent admin notices stored in option
+        $wns_notices = wns_get_admin_notices();
+        if (!empty($wns_notices) && is_array($wns_notices)):
+        ?>
+            <div id="wns-notices-container">
+            <?php foreach ($wns_notices as $nid => $n):
+                // Only show notices that are global (no tab) or match current tab
+                $notice_tab = isset($n['tab']) ? $n['tab'] : '';
+                if (!empty($notice_tab) && $notice_tab !== $current_tab) continue;
+                $type = isset($n['type']) ? $n['type'] : 'success';
+                $key = isset($n['key']) ? $n['key'] : '';
+                $text = isset($n['text']) && $n['text'] !== '' ? $n['text'] : wns_t($key);
+            ?>
+                <?php $preserve = (isset($n['meta']) && is_array($n['meta']) && !empty($n['meta']['preserve_on_reload'])); ?>
+                <div class="wns-notification <?php echo esc_attr($type); ?>" data-wns-id="<?php echo esc_attr($nid); ?>" data-wns-tab="<?php echo esc_attr($notice_tab); ?>" data-wns-preserve="<?php echo $preserve ? '1' : '0'; ?>">
+                    <span class="wns-notification-icon">
+                        <?php if ($type === 'success'): ?>
+                            ✓
+                        <?php elseif ($type === 'error'): ?>
+                            ⚠
+                        <?php endif; ?>
+                    </span>
+                    <span class="wns-notification-message"><?php echo esc_html($text); ?></span>
+                    <button type="button" class="wns-notice-dismiss" aria-label="Dismiss" style="float:right; background:transparent; border:none; font-size:16px; cursor:pointer;">&times;</button>
+                </div>
+                <?php
+                // Mark notice as displayed so it won't be shown again on subsequent loads.
+                // We remove it from persistent storage here while leaving it in the DOM for the user
+                // to dismiss during this page view. This ensures the notice appears once and
+                // won't reappear after refresh or navigating between tabs.
+                wns_remove_admin_notice($nid);
+                ?>
+            <?php endforeach; ?>
             </div>
-        <?php endif; ?>
-        
-        <script>
-            // Clean URL to prevent notification from showing again on refresh
-            if (window.history.replaceState) {
-                let url = window.location.href;
-                url = url.replace(/[?&]wns_sent=1/, '');
-                url = url.replace(/[?&]test_sent=1/, '');
-                url = url.replace(/[?&]test_failed=1/, '');
-                // Clean up any remaining query parameters if URL ends with ? or &
-                url = url.replace(/[?&]$/, '');
-                if (url !== window.location.href) {
-                    window.history.replaceState(null, null, url);
+
+            <script>
+            (function(){
+                function sendDismiss(ids, useBeacon) {
+                    if (!ids || ids.length === 0) return;
+                    try {
+                        // If sending via beacon or keepalive, batch into a JSON body
+                        if (useBeacon && navigator && navigator.sendBeacon) {
+                            var url = ajaxurl;
+                            var payload = JSON.stringify({ action: 'wns_dismiss_admin_notice', ids: ids });
+                            var blob = new Blob([payload], { type: 'application/json' });
+                            navigator.sendBeacon(url, blob);
+                            return;
+                        }
+
+                        // Try fetch with keepalive
+                        if (useBeacon && window.fetch) {
+                            fetch(ajaxurl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ action: 'wns_dismiss_admin_notice', ids: ids }),
+                                keepalive: true,
+                                credentials: 'same-origin'
+                            }).catch(function(){});
+                            return;
+                        }
+
+                        // Fallback: send requests sequentially using fetch
+                        ids.forEach(function(id){
+                            var d = new FormData();
+                            d.append('action', 'wns_dismiss_admin_notice');
+                            d.append('id', id);
+                            fetch(ajaxurl, { method: 'POST', body: d, credentials: 'same-origin' }).catch(function(){});
+                        });
+                    } catch(e) {}
                 }
-            }
-        </script>
+
+                // Single-click dismiss handler
+                document.addEventListener('click', function(e){
+                    var el = e.target;
+                    if (el && el.classList && el.classList.contains('wns-notice-dismiss')) {
+                        var wrapper = el.closest('.wns-notification');
+                        if (!wrapper) return;
+                        var id = wrapper.getAttribute('data-wns-id');
+                        // Optimistically remove from DOM
+                        wrapper.style.transition = 'opacity 0.2s ease';
+                        wrapper.style.opacity = '0';
+                        setTimeout(function(){ wrapper.remove(); }, 220);
+                        // Use beacon/keepalive where possible so dismissal persists even if page reloads immediately
+                        sendDismiss([id], true);
+                    }
+                });
+
+                // Dismiss all visible notices (used on navigation/refresh/tab-switch)
+                // includePreserved: if true, include notices marked as preserve_on_reload; default false
+                function dismissAllVisible(includePreserved) {
+                    includePreserved = !!includePreserved;
+                    var wrappers = document.querySelectorAll('.wns-notification');
+                    var ids = [];
+                    if (!wrappers || wrappers.length === 0) return ids;
+                    wrappers.forEach(function(w){
+                        var preserve = w.getAttribute('data-wns-preserve');
+                        if (!includePreserved && preserve && (preserve === '1' || preserve === 'true')) {
+                            // skip preserved notices
+                            return;
+                        }
+                        var id = w.getAttribute('data-wns-id');
+                        if (id) ids.push(id);
+                    });
+                    // Remove non-preserved from DOM immediately
+                    wrappers.forEach(function(w){
+                        var preserve = w.getAttribute('data-wns-preserve');
+                        if (!includePreserved && preserve && (preserve === '1' || preserve === 'true')) return;
+                        w.parentNode && w.parentNode.removeChild(w);
+                    });
+                    // Return collected ids so caller can send batched dismiss
+                    return ids;
+                }
+
+                // On page unload (refresh/navigate away) send dismisses so notices don't reappear
+                var wnsSubmittingSettings = false;
+                var settingsFormEl = document.getElementById('wns-settings-form');
+                if (settingsFormEl) {
+                    settingsFormEl.addEventListener('submit', function(){ wnsSubmittingSettings = true; });
+                }
+
+                window.addEventListener('beforeunload', function(){
+                    if (wnsSubmittingSettings) return; // don't dismiss when saving settings
+                    var ids = dismissAllVisible(true);
+                    if (ids && ids.length) sendDismiss(ids, true);
+                });
+                window.addEventListener('pagehide', function(){
+                    if (wnsSubmittingSettings) return;
+                    var ids = dismissAllVisible(true);
+                    if (ids && ids.length) sendDismiss(ids, true);
+                });
+
+                // When clicking our own tab buttons, dismiss visible notices first so they don't persist across tabs
+                document.addEventListener('click', function(e){
+                    var el = e.target;
+                    if (el && el.matches && el.matches('.wns-tab-button')) {
+                        // dismiss and send via beacon/keepalive
+                        var ids = dismissAllVisible(true);
+                        if (ids && ids.length) sendDismiss(ids, true);
+                    }
+                });
+            })();
+            </script>
+        <?php endif; ?>
         
         <style>
         .wns-language-section {
@@ -2279,7 +2478,7 @@ function wns_settings_page() {
             <!-- Settings Tab -->
             <div class="wns-tab-content <?php echo $current_tab === 'settings' ? 'active' : ''; ?>">
                 <div class="wns-section">
-                    <form method="post" action="options.php">
+                    <form id="wns-settings-form" method="post" action="options.php">
                         <?php settings_fields('wns_options_group'); ?>
                         
                         <div class="wns-form-row">
@@ -3567,7 +3766,12 @@ ${footerHTML}
 add_action('admin_post_wns_manual_send', function() {
     if (current_user_can('manage_options')) {
         wns_send_newsletter(true);
-        wp_redirect(add_query_arg('wns_sent', '1', wp_get_referer()));
+        // Add persistent notice scoped to the tab from referer
+        $redirect = wp_get_referer();
+        $tab = wns_get_tab_from_url($redirect);
+        wns_add_admin_notice('newsletter_sent_manually', 'success', '', $tab);
+        if (!$redirect) $redirect = admin_url('admin.php?page=wns-main');
+        wp_redirect($redirect);
         exit;
     }
 });
@@ -3588,8 +3792,15 @@ add_action('admin_post_wns_test_email', function() {
         // Remove filter after sending
         remove_filter('wp_mail_from_name', 'wns_set_newsletter_from_name');
         
-        $status = $sent ? 'test_sent' : 'test_failed';
-        wp_redirect(add_query_arg($status, '1', wp_get_referer()));
+        $redirect = wp_get_referer();
+        $tab = wns_get_tab_from_url($redirect);
+        if ($sent) {
+            wns_add_admin_notice('test_email_sent_success', 'success', '', $tab);
+        } else {
+            wns_add_admin_notice('test_email_send_failed', 'error', '', $tab);
+        }
+        if (!$redirect) $redirect = admin_url('admin.php?page=wns-main');
+        wp_redirect($redirect);
         exit;
     }
 });

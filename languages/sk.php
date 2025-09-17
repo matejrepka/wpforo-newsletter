@@ -269,6 +269,7 @@ return [
     
     // Notifikačné správy
     'newsletter_sent_manually' => 'Newsletter odoslaný manuálne!',
+    'settings_saved' => 'Nastavenia boli úspešne uložené!',
     'test_email_sent_success' => 'Testovací email úspešne odoslaný!',
     'test_email_send_failed' => 'Odoslanie testovacieho emailu zlyhalo. Skontrolujte svoje nastavenia.'
 ];

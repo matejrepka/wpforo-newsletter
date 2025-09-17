@@ -269,6 +269,7 @@ return [
     
     // Notification messages
     'newsletter_sent_manually' => 'Newsletter sent manually!',
+    'settings_saved' => 'Settings saved successfully!',
     'test_email_sent_success' => 'Test email sent successfully!',
     'test_email_send_failed' => 'Test email failed to send. Please check your configuration.'
 ];
