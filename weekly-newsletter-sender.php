@@ -536,7 +536,6 @@ function wns_generate_email_styles() {
     $content_padding = get_option('wns_email_content_padding', '20');
     $card_radius = get_option('wns_email_card_radius', '7');
     $line_height = get_option('wns_email_line_height', '1.5');
-    $meta_color = get_option('wns_email_meta_color', '#888888');
     
     return "
 body {background: {$bg_color}; font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};}
@@ -598,12 +597,12 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
 }
 .post-title {
     font-size: 1.02em;
-    font-weight: 600;
+    font-weight: 700 !important;
     color: {$text_color};
     margin-bottom: 0.15em;
 }
 .post-meta {
-    color: {$meta_color};ň
+    color: {$text_color};
     font-size: 0.95em;
     margin-bottom: 0.3em;
 }
@@ -670,14 +669,14 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
         (!$include_forum || empty($summary))
     ) {
         $accent_color = get_option('wns_email_accent_color', '#0073aa');
-        $meta_color = get_option('wns_email_meta_color', '#888888');
+        $text_color = get_option('wns_email_text_color', '#333333');
         $message .= '<div class="card" style="text-align:center; padding:2em 1em;">
-            <p style="font-size:1.2em; color:'.$meta_color.'; margin-bottom:1.2em;">'.wns_t('no_new_posts_this_week').'</p>
+            <p style="font-size:1.2em; color:'.$text_color.'; margin-bottom:1.2em;">'.wns_t('no_new_posts_this_week').'</p>
             <p>
                 <a href="' . esc_url(home_url('/')) . '" style="color:'.$accent_color.'; font-weight:600; text-decoration:underline; margin-right:1.5em;">'.wns_t('visit_website').'</a>
                 <a href="' . esc_url(site_url('/community/')) . '" style="color:'.$accent_color.'; font-weight:600; text-decoration:underline;">'.wns_t('visit_forum').'</a>
             </p>
-            <p style="color:'.$meta_color.'; font-size:0.98em; margin-top:1.5em;">'.wns_t('browse_older_content').'</p>
+            <p style="color:'.$text_color.'; font-size:0.98em; margin-top:1.5em;">'.wns_t('browse_older_content').'</p>
         </div>';
         return $message;
     }
@@ -702,7 +701,7 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
 
         $message .= '<section class="wp-posts"><h2 class="section-title">'.wns_t('latest_articles_website').'</h2>';
         foreach ($posts_by_cat as $cat) {
-            $message .= '<div class="forum-header"><span class="category-label">'.esc_html($cat['cat_name']).'</span></div>';
+            $message .= '<div class="forum-header"><span class="category-label">'.wns_t('category_label').'</span><span class="forum-name">'.esc_html($cat['cat_name']).'</span></div>';
             foreach ($cat['posts'] as $post) {
                 $url = get_permalink($post->ID);
                 $date = get_the_date('d.m.Y', $post->ID);
@@ -720,42 +719,6 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
         }
         $message .= '</section>';
     }
-        if ($include_wp && !empty($wp_posts)) {
-            // Group posts by first category
-            $posts_by_cat = [];
-            foreach ($wp_posts as $post) {
-                $categories = get_the_category($post->ID);
-                $cat_name = (!empty($categories)) ? $categories[0]->name : 'Uncategorized';
-                $cat_slug = (!empty($categories)) ? $categories[0]->slug : 'uncategorized';
-                if (!isset($posts_by_cat[$cat_slug])) {
-                    $posts_by_cat[$cat_slug] = [
-                        'cat_name' => $cat_name,
-                        'posts' => []
-                    ];
-                }
-                $posts_by_cat[$cat_slug]['posts'][] = $post;
-            }
-
-            $message .= '<section class="wp-posts"><h2 class="section-title">'.wns_t('latest_articles_website').'</h2>';
-            foreach ($posts_by_cat as $cat) {
-                $message .= '<div class="forum-header"><span class="category-label">'.esc_html($cat['cat_name']).'</span></div>';
-                foreach ($cat['posts'] as $post) {
-                    $url = get_permalink($post->ID);
-                    $date = get_the_date('d.m.Y', $post->ID);
-                    $title = esc_html(get_the_title($post->ID));
-                    $excerpt_raw = wp_trim_words(strip_tags($post->post_content), WNS_EXCERPT_WORDS, '...');
-                    $excerpt = wns_format_quotes($excerpt_raw);
-
-                    $message .= "<div class='card post-card'>";
-                    $message .= "<div class='post-title'>{$title}</div>";
-                    $message .= "<div class='post-meta'>{$date}</div>";
-                    $message .= "<div class='post-excerpt'>{$excerpt}</div>";
-                    $message .= "<div class='post-readmore'><a href='{$url}'>Read more on website...</a></div>";
-                    $message .= "</div>";
-                }
-            }
-            $message .= '</section>';
-        }
 
     // Forum section
     if ($include_forum && !empty($summary)) {
@@ -859,7 +822,6 @@ function wns_build_email($summary, $count, $wp_posts = []) {
     $content_padding = get_option('wns_email_content_padding', '20');
     $card_radius = get_option('wns_email_card_radius', '7');
     $line_height = get_option('wns_email_line_height', '1.5');
-    $meta_color = get_option('wns_email_meta_color', '#888888');
     $header_title = get_option('wns_email_header_title', 'Weekly Newsletter');
     $header_subtitle = get_option('wns_email_header_subtitle', '');
 
@@ -885,12 +847,12 @@ function wns_build_email($summary, $count, $wp_posts = []) {
         (!$include_forum || empty($summary))
     ) {
         $message .= '<div class="card" style="text-align:center; padding:2em 1em;">
-            <p style="font-size:1.2em; color:'.$meta_color.'; margin-bottom:1.2em;">'.wns_t('no_new_posts_this_week').'</p>
+            <p style="font-size:1.2em; color:'.$text_color.'; margin-bottom:1.2em;">'.wns_t('no_new_posts_this_week').'</p>
             <p>
                 <a href="' . esc_url(home_url('/')) . '" style="color:'.$accent_color.'; font-weight:600; text-decoration:underline; margin-right:1.5em;">'.wns_t('visit_website').'</a>
                 <a href="' . esc_url(site_url('/community/')) . '" style="color:'.$accent_color.'; font-weight:600; text-decoration:underline;">'.wns_t('visit_forum').'</a>
             </p>
-            <p style="color:'.$meta_color.'; font-size:0.98em; margin-top:1.5em;">'.wns_t('browse_older_content').'</p>
+            <p style="color:'.$text_color.'; font-size:0.98em; margin-top:1.5em;">'.wns_t('browse_older_content').'</p>
         </div>';
     }
 
@@ -914,7 +876,7 @@ function wns_build_email($summary, $count, $wp_posts = []) {
 
         $message .= '<section class="wp-posts"><h2 class="section-title">'.wns_t('latest_articles_website').'</h2>';
         foreach ($posts_by_cat as $cat) {
-            $message .= '<div class="forum-header"><span class="category-label">'.esc_html($cat['cat_name']).'</span></div>';
+            $message .= '<div class="forum-header"><span class="category-label">'.wns_t('category_label').'</span><span class="forum-name">'.esc_html($cat['cat_name']).'</span></div>';
             foreach ($cat['posts'] as $post) {
                 $url = get_permalink($post->ID);
                 $date = get_the_date('d.m.Y', $post->ID);
@@ -1186,7 +1148,6 @@ function wns_build_demo_email() {
     $content_padding = get_option('wns_email_content_padding', '20');
     $card_radius = get_option('wns_email_card_radius', '7');
     $line_height = get_option('wns_email_line_height', '1.5');
-    $meta_color = get_option('wns_email_meta_color', '#888888');
     $header_title = get_option('wns_email_header_title', 'Weekly Newsletter');
     $header_subtitle = get_option('wns_email_header_subtitle', '');
 
@@ -1204,7 +1165,7 @@ function wns_build_demo_email() {
         }
     }
 
-    $message = "<div class='email-header'>{$header_content}</div><div class='intro'><strong>".esc_html($intro)."</strong></div>";
+    $message = "<div class='email-header' style='background: {$header_color}; color: #fff; text-align: center; padding: {$content_padding}px;'>{$header_content}</div><div class='intro' style='font-size: 1.25em; margin: 1.5em {$content_padding}px 1.2em; color: {$text_color};'><strong>".esc_html($intro)."</strong></div>";
 
     // WordPress posts section with demo data
     $message .= '<section class="wp-posts"><h2 class="section-title">'.wns_t('latest_articles_website').'</h2>';
@@ -1222,7 +1183,7 @@ function wns_build_demo_email() {
     }
 
     foreach ($posts_by_cat as $cat) {
-        $message .= '<div class="forum-header"><span class="category-label">'.esc_html($cat['cat_name']).'</span></div>';
+        $message .= '<div class="forum-header"><span class="category-label">'.wns_t('category_label').'</span><span class="forum-name">'.esc_html($cat['cat_name']).'</span></div>';
         foreach ($cat['posts'] as $post) {
             $url = wns_get_demo_post_permalink($post->ID);
             $date = date('M j, Y', strtotime($post->post_date));
@@ -1254,10 +1215,28 @@ function wns_build_demo_email() {
                 $body = wp_kses_post(wns_format_quotes($post->body));
                 $excerpt_html = wns_truncate_html_words($body, WNS_EXCERPT_WORDS, $url);
                 $message .= "<div class='card forum-post'>";
-                $message .= "<div class='post-title'>".esc_html($post->title)."</div>";
-                $message .= "<div class='post-meta'>{$author} &middot; {$postdate} {$posttime}</div>";
+                // Determine if this post is a reply. Many forum systems prefix replies with 'RE:' or leave title empty.
+                $post_title_raw = trim((string)$post->title);
+                $is_reply = false;
+                if (empty($post_title_raw)) {
+                    $is_reply = true;
+                } else {
+                    // Case-insensitive check for RE: prefix
+                    if (preg_match('/^RE\s*[:\-]/i', $post_title_raw) || preg_match('/^RE\s+/i', $post_title_raw)) {
+                        $is_reply = true;
+                    }
+                }
+
+                if ($is_reply) {
+                    // Only show the localized Reply label (no icon)
+                    $message .= "<div class='reply-label'>" . esc_html(wns_t('reply_label', 'Reply')) . "</div>";
+                }
+
+                // Inline style for post-meta so preview shows bold/colored text reliably
+                $meta_inline = 'style="color: ' . esc_attr($text_color) . '; font-weight:700 !important; font-size:1.02em; margin-bottom:0.3em;"';
+                $message .= "<div class='post-meta' {$meta_inline}>" . ($author ? esc_html($author) . ' &middot; ' : '') . "{$postdate} {$posttime}</div>";
                 $message .= "<div class='post-excerpt'>{$excerpt_html}</div>";
-                $message .= "<div class='post-readmore'><a href='{$url}'>Continue reading on forum...</a></div>";
+                $message .= "<div class='post-readmore'><a href='{$url}'>".wns_t('read_more_forum')."</a></div>";
                 $message .= "</div>";
             }
         }
@@ -1636,7 +1615,6 @@ function wns_register_settings() {
     register_setting('wns_design_group', 'wns_email_content_padding');
     register_setting('wns_design_group', 'wns_email_card_radius');
     register_setting('wns_design_group', 'wns_email_line_height');
-    register_setting('wns_design_group', 'wns_email_meta_color');
     register_setting('wns_design_group', 'wns_email_header_title');
     register_setting('wns_design_group', 'wns_email_header_subtitle');
     register_setting('wns_design_group', 'wns_email_intro_text');
@@ -2743,7 +2721,7 @@ function wns_settings_page() {
                                 headerTextSize: '<?php echo esc_js(get_option('wns_email_header_text_size', '28')); ?>',
                                 accentColor: '<?php echo esc_js(get_option('wns_email_accent_color', '#0073aa')); ?>',
                                 textColor: '<?php echo esc_js(get_option('wns_email_text_color', '#333333')); ?>',
-                                metaColor: '<?php echo esc_js(get_option('wns_email_meta_color', '#888888')); ?>',
+                                textColor: '<?php echo esc_js(get_option('wns_email_text_color', '#333333')); ?>',
                                 backgroundColor: '<?php echo esc_js(get_option('wns_email_background_color', '#f9f9f9')); ?>',
                                 cardBgColor: '<?php echo esc_js(get_option('wns_email_card_bg_color', '#f8f8f8')); ?>',
                                 cardBorderColor: '<?php echo esc_js(get_option('wns_email_card_border_color', '#e5e5e5')); ?>',
@@ -2910,7 +2888,7 @@ h1 {color: ${settings.textColor}; border-bottom:2px solid ${settings.cardBorderC
 .thread-name {font-size: 1.02em; font-weight: bold; color: ${settings.textColor};}
 .post-title {font-size: 1.02em; font-weight: 600; color: ${settings.textColor}; margin-bottom: 0.15em;}
 .post-title a {color: ${settings.textColor}; text-decoration: none;}
-.post-meta {color: ${settings.metaColor}; font-size: 0.95em; margin-bottom: 0.3em;}
+.post-meta {color: ${settings.textColor}; font-size: 0.95em; margin-bottom: 0.3em;}
 .post-excerpt {color: ${settings.textColor}; font-size: 1em; margin-bottom: 0.7em; margin-top: 0.1em; line-height: ${settings.lineHeight};}
 .forum-quote {border-left: 3px solid ${settings.accentColor}; background: #fffbe7; color: #444; margin: 0.5em 0 0.7em 0; padding: 0.5em 0.8em; font-style: italic; font-size: 0.97em; border-radius: 5px;}
 .post-readmore {margin-top: 0.3em;}
@@ -2991,12 +2969,6 @@ ${footerHTML}
                                     <label class="wns-form-label"><?php wns_te('text_color_label'); ?></label>
                                     <input type="color" name="wns_email_text_color" id="text-color" value="<?php echo esc_attr(get_option('wns_email_text_color', '#333333')); ?>" class="wns-form-input" />
                                     <div class="wns-form-help"><?php wns_te('text_color_help'); ?></div>
-                                </div>
-                                
-                                <div class="wns-form-row">
-                                    <label class="wns-form-label"><?php wns_te('meta_text_color_label'); ?></label>
-                                    <input type="color" name="wns_email_meta_color" id="meta-color" value="<?php echo esc_attr(get_option('wns_email_meta_color', '#888888')); ?>" class="wns-form-input" />
-                                    <div class="wns-form-help"><?php wns_te('meta_text_color_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
@@ -3084,7 +3056,7 @@ ${footerHTML}
                         headerTextSize: document.getElementById('header-text-size'),
                         accentColor: document.getElementById('accent-color'),
                         textColor: document.getElementById('text-color'),
-                        metaColor: document.getElementById('meta-color'),
+                        textColor: document.getElementById('text-color'),
                         backgroundColor: document.getElementById('background-color'),
                         cardBgColor: document.getElementById('card-bg-color'),
                         cardBorderColor: document.getElementById('card-border-color'),
@@ -3144,7 +3116,7 @@ ${footerHTML}
                             headerTextSize: inputs.headerTextSize.value,
                             accentColor: inputs.accentColor.value,
                             textColor: inputs.textColor.value,
-                            metaColor: inputs.metaColor.value,
+                            textColor: inputs.textColor.value,
                             backgroundColor: inputs.backgroundColor.value,
                             cardBgColor: inputs.cardBgColor.value,
                             cardBorderColor: inputs.cardBorderColor.value,
@@ -3321,7 +3293,6 @@ h1 {color: ${values.textColor}; border-bottom:2px solid ${values.cardBorderColor
 <div class="forum-header"><span class="category-label"><?php echo esc_js(wns_t('forum')); ?></span><span class="forum-name">General Discussion</span></div>
 <div class="thread-header"><span class="topic-label"><?php echo esc_js(wns_t('topic')); ?></span><span class="thread-name">Beginner Questions</span></div>
 <div class='card forum-post'>
-<div class='post-title'><a href='#'>How to start with programming?</a></div>
 <div class='post-meta'>John Smith &middot; Sep 14, 2025 08:30</div>
 <div class='post-excerpt'>Hello everyone! I'm a complete beginner in programming and would like to learn. Can you recommend which programming language would be best to start with? I'm thinking between Python and JavaScript...</div>
 <div class='post-readmore'><a href='#'><?php echo esc_js(wns_t('continue_reading_forum')); ?></a></div>
@@ -3329,7 +3300,6 @@ h1 {color: ${values.textColor}; border-bottom:2px solid ${values.cardBorderColor
 <div class="forum-header"><span class="category-label"><?php echo esc_js(wns_t('forum')); ?></span><span class="forum-name">Web Design</span></div>
 <div class="thread-header"><span class="topic-label"><?php echo esc_js(wns_t('topic')); ?></span><span class="thread-name">CSS Grid vs Flexbox</span></div>
 <div class='card forum-post'>
-<div class='post-title'><a href='#'>When to use CSS Grid vs Flexbox?</a></div>
 <div class='post-meta'>Sarah Johnson &middot; Sep 14, 2025 06:30</div>
 <div class='post-excerpt'>I often encounter the question of when it's better to use CSS Grid versus Flexbox. Can someone explain the main differences and practical applications? <div class="forum-quote">Grid is excellent for two-dimensional layouts, while Flexbox is ideal for one-dimensional ones.</div></div>
 <div class='post-readmore'><a href='#'>Continue reading on forum...</a></div>
