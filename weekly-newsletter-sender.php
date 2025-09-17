@@ -603,7 +603,7 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
     margin-bottom: 0.15em;
 }
 .post-meta {
-    color: {$meta_color};
+    color: {$meta_color};ň
     font-size: 0.95em;
     margin-bottom: 0.3em;
 }
@@ -966,7 +966,7 @@ function wns_build_email($summary, $count, $wp_posts = []) {
                         }
 
                         // Inline style for post-meta so preview shows bold/colored text reliably
-                        $meta_inline = 'style="color: ' . esc_attr($text_color) . '; font-weight:600; font-size:1.02em; margin-bottom:0.3em;"';
+                        $meta_inline = 'style="color: ' . esc_attr($text_color) . '; font-weight:700 !important; font-size:1.02em; margin-bottom:0.3em;"';
                         $message .= "<div class='post-meta' {$meta_inline}>" . ($author ? esc_html($author) . ' &middot; ' : '') . "{$postdate} {$posttime}</div>";
                         $message .= "<div class='post-excerpt'>{$excerpt_html}</div>";
                         $message .= "<div class='post-readmore'><a href='{$url}'>".wns_t('read_more_forum')."</a></div>";
@@ -3253,6 +3253,7 @@ h1 {color: ${values.textColor}; border-bottom:2px solid ${values.cardBorderColor
 }
 .post-meta {
     color: ${values.metaColor};
+    font-weight: 600;
     font-size: 0.95em;
     margin-bottom: 0.3em;
 }
