@@ -164,7 +164,7 @@ return [
     'slovak' => 'Slovenčina',
     
     // Footer
-    'plugin_footer' => 'Weekly Newsletter Sender v2.0 od <a href="https://marep.sk" target="_blank" style="color: #4a4a4a; text-decoration: none; font-weight: bold;">Marep</a>',
+    'plugin_footer' => 'Weekly Newsletter Sender v1.0 od <a href="https://marep.sk" target="_blank" style="color: #4a4a4a; text-decoration: none; font-weight: bold;">Marep</a>',
     'need_support' => 'Potrebujete podporu? Kontakt: <a href="mailto:support@marep.sk" style="color: #4a4a4a; text-decoration: none;">support@marep.sk</a> | <a href="https://marep.sk" target="_blank" style="color: #4a4a4a; text-decoration: none;">marep.sk</a>',
     
     // Error messages
