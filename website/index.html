@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Newsletter Sender for wpForo - WordPress Plugin</title>
+    <meta name="description" content="Automate your community engagement with weekly newsletters combining blog posts and forum content. Professional WordPress plugin for €49.">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Waitlist Section -->
+    <section id="waitlist" class="waitlist">
+        <div class="container">
+            <h2>Join Our Waitlist</h2>
+            <p>Be the first to know when we launch new features and updates!</p>
+            <form action="../add_email.php" method="POST" class="waitlist-form">
+                <input type="email" name="email" placeholder="Enter your email" required>
+                <button type="submit" class="btn-primary">Join Waitlist</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Header -->
+    <header class="header">
+        <nav class="nav">
+            <div class="nav-brand">
+                <h2>Weekly Newsletter Sender</h2>
+            </div>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#pricing">Pricing</a>
+                <a href="#faq">FAQ</a>
+                <a href="#contact" class="btn-primary">Get Started</a>
+            </div>
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>Automate Your Community Newsletters with Professional WordPress Plugin</h1>
+                <p class="hero-subtitle">Combine your blog posts and forum discussions into engaging weekly newsletters. Boost engagement, retain users, and grow your community effortlessly.</p>
+                <div class="hero-features">
+                    <div class="feature-item">
+                        <span class="checkmark">✓</span>
+                        <span>Automated Weekly Sending</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="checkmark">✓</span>
+                        <span>wpForo Integration</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="checkmark">✓</span>
+                        <span>SMTP Support</span>
+                    </div>
+                </div>
+                <div class="hero-cta">
+                    <a href="#pricing" class="btn-primary btn-large">Get Plugin for €49</a>
+                    <a href="#demo" class="btn-secondary">View Demo</a>
+                </div>
+            </div>
+            <div class="hero-image">
+                <img src="/placeholder.svg?height=400&width=600" alt="Newsletter Plugin Dashboard" />
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">Powerful Features for Community Growth</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📧</div>
+                    <h3>Automated Weekly Newsletters</h3>
+                    <p>Set it and forget it. Your newsletters are automatically generated and sent every week with fresh content from your blog and forum.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔗</div>
+                    <h3>wpForo Integration</h3>
+                    <p>Seamlessly integrates with wpForo to include the most engaging forum discussions in your newsletters.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3>Customizable Templates</h3>
+                    <p>Beautiful, responsive email templates that match your brand. Easy customization with no coding required.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Advanced Analytics</h3>
+                    <p>Track open rates, click-through rates, and engagement metrics to optimize your newsletter performance.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>Enterprise Security</h3>
+                    <p>SMTP authentication, secure data handling, and compliance with email marketing regulations.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>High Performance</h3>
+                    <p>Optimized for large communities with efficient batch processing and minimal server impact.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technical Specs -->
+    <section class="tech-specs">
+        <div class="container">
+            <h2 class="section-title">Technical Specifications</h2>
+            <div class="specs-grid">
+                <div class="spec-item">
+                    <h4>WordPress Compatibility</h4>
+                    <p>WordPress 5.0+ (tested up to 6.4)</p>
+                </div>
+                <div class="spec-item">
+                    <h4>PHP Requirements</h4>
+                    <p>PHP 7.4+ (recommended 8.0+)</p>
+                </div>
+                <div class="spec-item">
+                    <h4>Database</h4>
+                    <p>MySQL 5.6+ or MariaDB 10.0+</p>
+                </div>
+                <div class="spec-item">
+                    <h4>Email Delivery</h4>
+                    <p>SMTP, WordPress mail, or third-party services</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="pricing">
+        <div class="container">
+            <h2 class="section-title">Simple, Transparent Pricing</h2>
+            <div class="pricing-card">
+                <div class="price-header">
+                    <h3>Professional License</h3>
+                    <div class="price">€49</div>
+                    <p class="price-subtitle">One-time payment</p>
+                </div>
+                <ul class="features-list">
+                    <li>✓ Unlimited newsletters</li>
+                    <li>✓ wpForo integration</li>
+                    <li>✓ Custom email templates</li>
+                    <li>✓ SMTP support</li>
+                    <li>✓ Analytics dashboard</li>
+                    <li>✓ 1 year of updates</li>
+                    <li>✓ Email support</li>
+                    <li>✓ 30-day money-back guarantee</li>
+                </ul>
+                <a href="#contact" class="btn-primary btn-large">Purchase Now</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="faq">
+        <div class="container">
+            <h2 class="section-title">Frequently Asked Questions</h2>
+            <div class="faq-list">
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        How does the plugin work with wpForo?
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>The plugin automatically connects to your wpForo installation and pulls the most active discussions, popular topics, and recent posts to include in your weekly newsletter alongside your blog content.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        Can I customize the email templates?
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Yes! The plugin comes with several professional templates that you can customize with your brand colors, logo, and styling. No coding knowledge required.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        What email services are supported?
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>The plugin supports SMTP configuration for services like Gmail, SendGrid, Mailgun, and any SMTP-compatible email service. It also works with WordPress's built-in mail function.</p>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        Is there a refund policy?
+                        <span class="faq-icon">+</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Yes, we offer a 30-day money-back guarantee. If you're not satisfied with the plugin, contact us within 30 days for a full refund.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section id="contact" class="cta">
+        <div class="container">
+            <h2>Ready to Boost Your Community Engagement?</h2>
+            <p>Join hundreds of WordPress site owners who are already using our plugin to grow their communities.</p>
+            <div class="cta-buttons">
+                <a href="mailto:support@example.com?subject=Purchase Weekly Newsletter Plugin" class="btn-primary btn-large">Purchase for €49</a>
+                <a href="mailto:support@example.com?subject=Plugin Demo Request" class="btn-secondary">Request Demo</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Weekly Newsletter Sender</h4>
+                    <p>Professional WordPress plugin for automated community newsletters.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Support</h4>
+                    <a href="mailto:support@example.com">Email Support</a>
+                    <a href="#faq">FAQ</a>
+                    <a href="#">Documentation</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Legal</h4>
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                    <a href="#">Refund Policy</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 Weekly Newsletter Sender. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
