@@ -4414,15 +4414,20 @@ ${footerHTML}
                     100% { transform: rotate(360deg); }
                 }
                 #wns-email-preview-content {
-                    margin: -48px -80px 0 -80px;
-                    padding: 48px 80px 0 80px;
+                    margin-left: -80px;
+                    margin-right: -80px;
+                    margin-top: -48px;
+                    padding-top: 48px;
+                    width: auto;
                 }
                 .wns-preview-meta {
                     background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
                     color: #fff;
                     font-size: 13px;
-                    margin: -48px -80px 30px -80px;
-                    padding: 25px 80px;
+                    margin-left: calc(-50vw + 50%);
+                    margin-right: calc(-50vw + 50%);
+                    margin-bottom: 30px;
+                    padding: 25px max(80px, calc(50vw - 50%));
                     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
                     border: 1px solid #444;
                     border-radius: 8px;
@@ -4447,7 +4452,7 @@ ${footerHTML}
                 .wns-preview-email-content {
                     max-height: none;
                     overflow: visible;
-                    padding: 0;
+                    padding: 0 80px;
                 }
                 .wns-preview-error {
                     background: #f8d7da;
@@ -4456,6 +4461,23 @@ ${footerHTML}
                     border-left: 4px solid #dc3545;
                     border-radius: 6px;
                     margin-bottom: 20px;
+                }
+                
+                @media (max-width: 800px) {
+                    #wns-email-preview-content {
+                        margin-left: -20px;
+                        margin-right: -20px;
+                    }
+                    .wns-preview-meta {
+                        padding: 20px max(20px, calc(50vw - 50%));
+                    }
+                    .wns-preview-meta > div {
+                        grid-template-columns: 1fr;
+                        gap: 15px;
+                    }
+                    .wns-preview-email-content {
+                        padding: 0 20px;
+                    }
                 }
                 </style>
                 
