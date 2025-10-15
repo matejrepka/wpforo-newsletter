@@ -3686,6 +3686,26 @@ ${footerHTML}
                         <?php wns_te('preview_description'); ?>
                     </div>
                     
+                    <?php
+                    // Display current date range settings
+                    $preview_date_range_type = get_option('wns_date_range_type', 'week');
+                    if ($preview_date_range_type === 'custom') {
+                        $preview_date_from = get_option('wns_date_from');
+                        $preview_date_to = get_option('wns_date_to');
+                        echo '<div class="wns-info-text" style="background: #e7f3ff; border-left: 4px solid #2271b1; padding: 12px; margin-bottom: 15px;">';
+                        echo '<strong>📅 ' . wns_t('date_range_label', 'Date Range') . ':</strong> ';
+                        echo wns_t('custom_range', 'Custom') . ' - ';
+                        echo esc_html(date('d.m.Y', strtotime($preview_date_from))) . ' ' . wns_t('to_label', 'to') . ' ' . esc_html(date('d.m.Y', strtotime($preview_date_to)));
+                        echo '</div>';
+                    } else {
+                        $preview_send_day = get_option('wns_send_day', 'monday');
+                        echo '<div class="wns-info-text" style="background: #e7f3ff; border-left: 4px solid #2271b1; padding: 12px; margin-bottom: 15px;">';
+                        echo '<strong>📅 ' . wns_t('date_range_label', 'Date Range') . ':</strong> ';
+                        echo wns_t('latest_this_week', 'Latest this week') . ' (' . wns_t('7_days_before_send', '7 days before') . ' ' . ucfirst($preview_send_day) . ')';
+                        echo '</div>';
+                    }
+                    ?>
+                    
                     <div class="wns-preview-controls-section">
                         <button type="button" id="wns-refresh-preview" class="button button-secondary">
                             🔄 <?php wns_te('refresh_preview'); ?>
@@ -3698,36 +3718,51 @@ ${footerHTML}
                             <?php
                             // Auto-generate preview when tab is active
                             try {
-                                // Calculate date range based on scheduled send time (not today)
-                                $send_day = get_option('wns_send_day', 'monday');
-                                $send_time = get_option('wns_send_time', '08:00');
+                                // Get date range type from settings (week or custom)
+                                $date_range_type = get_option('wns_date_range_type', 'week');
                                 $timezone = wp_timezone();
-                                $next_send = new DateTime('now', $timezone);
                                 
-                                // Calculate next scheduled send date
-                                try {
-                                    $target = new DateTime('this ' . $send_day, $timezone);
-                                    $time_parts = explode(':', $send_time);
-                                    $target->setTime((int)$time_parts[0], (int)$time_parts[1]);
+                                // Calculate date range based on settings
+                                if ($date_range_type === 'custom') {
+                                    // Use custom date range from settings
+                                    $date_from_str = get_option('wns_date_from');
+                                    $date_to_str = get_option('wns_date_to');
                                     
-                                    if ($target < $next_send) {
-                                        $target->modify('+1 week');
+                                    // Validate custom dates
+                                    if (empty($date_from_str) || empty($date_to_str)) {
+                                        throw new Exception('Custom date range not properly configured');
                                     }
+                                } else {
+                                    // Use week-based calculation (7 days before scheduled send)
+                                    $send_day = get_option('wns_send_day', 'monday');
+                                    $send_time = get_option('wns_send_time', '08:00');
+                                    $next_send = new DateTime('now', $timezone);
                                     
-                                    // Date range should be 7 days before the scheduled send
-                                    $date_to = clone $target;
-                                    $date_to->modify('-1 day'); // Day before send
-                                    $date_from = clone $date_to;
-                                    $date_from->modify('-6 days'); // 7 days total (including end date)
-                                    
-                                    $date_from_str = $date_from->format('Y-m-d');
-                                    $date_to_str = $date_to->format('Y-m-d');
-                                    
-                                } catch (Exception $e) {
-                                    // Fallback to 7 days before scheduled send time if date calculation fails
-                                    $fallback_end = date('Y-m-d', strtotime('next ' . $send_day . ' -1 day'));
-                                    $date_to_str = $fallback_end;
-                                    $date_from_str = date('Y-m-d', strtotime($fallback_end . ' -6 days'));
+                                    // Calculate next scheduled send date
+                                    try {
+                                        $target = new DateTime('this ' . $send_day, $timezone);
+                                        $time_parts = explode(':', $send_time);
+                                        $target->setTime((int)$time_parts[0], (int)$time_parts[1]);
+                                        
+                                        if ($target < $next_send) {
+                                            $target->modify('+1 week');
+                                        }
+                                        
+                                        // Date range should be 7 days before the scheduled send
+                                        $date_to = clone $target;
+                                        $date_to->modify('-1 day'); // Day before send
+                                        $date_from = clone $date_to;
+                                        $date_from->modify('-6 days'); // 7 days total (including end date)
+                                        
+                                        $date_from_str = $date_from->format('Y-m-d');
+                                        $date_to_str = $date_to->format('Y-m-d');
+                                        
+                                    } catch (Exception $e) {
+                                        // Fallback to 7 days before scheduled send time if date calculation fails
+                                        $fallback_end = date('Y-m-d', strtotime('next ' . $send_day . ' -1 day'));
+                                        $date_to_str = $fallback_end;
+                                        $date_from_str = date('Y-m-d', strtotime($fallback_end . ' -6 days'));
+                                    }
                                 }
                                 
                                 // Get settings for what to include
