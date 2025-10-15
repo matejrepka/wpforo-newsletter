@@ -3940,18 +3940,25 @@ ${footerHTML}
                     100% { transform: rotate(360deg); }
                 }
                 #wns-email-preview-content {
-                    margin: -48px -80px 0 -80px;
-                    padding: 48px 80px 0 80px;
+                    margin-left: -80px;
+                    margin-right: -80px;
+                    margin-top: -48px;
+                    padding-top: 48px;
+                    width: auto;
                 }
                 .wns-preview-meta {
                     background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
                     color: #fff;
                     font-size: 13px;
-                    margin: -48px -80px 30px -80px;
+                    margin: 0 0 30px 0;
                     padding: 25px 80px;
                     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
                     border: 1px solid #444;
                     border-radius: 8px;
+                    width: 100vw;
+                    position: relative;
+                    left: 50%;
+                    transform: translateX(-50%);
                 }
                 .wns-preview-meta > div {
                     display: grid;
