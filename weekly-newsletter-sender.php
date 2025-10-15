@@ -6,31 +6,12 @@
  * Version: 1.0.0
  * Author: Marep
  * Author URI: https://marep.sk
- * License: GPL v2 or later
- * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: weekly-newsletter-sender
  * Domain Path: /languages
- * Requires at least: 5.0
- * Tested up to: 6.4
- * Requires PHP: 7.4
+ * Requires at least: 6.0
+ * Tested up to: 6.8
  * Network: false
  */
-
-/*
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-*/
 
 // Prevent direct access
 if (!defined('ABSPATH')) {
@@ -335,8 +316,23 @@ add_action('wp_ajax_wns_generate_email_preview', function() {
                 <div class="wns-preview-meta-value">' . (isset($target) ? $target->format('M j, Y H:i') : wns_t('not_calculated')) . '</div>
             </div>
         </div>
-        <div class="wns-preview-email-content" style="padding: 30px 20px;">
-            ' . $email_content . '
+        <div class="wns-preview-email-content">
+            <script>
+            (function() {
+                var iframe = document.createElement(\'iframe\');
+                iframe.style.width = \'100%\';
+                iframe.style.border = \'none\';
+                iframe.style.display = \'block\';
+                document.currentScript.parentElement.appendChild(iframe);
+                var emailHTML = ' . json_encode($email_content) . ';
+                iframe.contentDocument.open();
+                iframe.contentDocument.write(emailHTML);
+                iframe.contentDocument.close();
+                setTimeout(function() {
+                    iframe.style.height = iframe.contentDocument.body.scrollHeight + \'px\';
+                }, 100);
+            })();
+            </script>
         </div>';
         
         wp_send_json_success(array(
@@ -517,19 +513,19 @@ function wns_format_quotes($text) {
         '/\[quote([^\]]*)\](.*?)\[\/quote\]/is',
         function($m) {
             $quote = trim(strip_tags($m[2]));
-            return '<blockquote class="forum-quote">'.nl2br(esc_html($quote)).'</blockquote>';
+            return '<blockquote class="wns-forum-quote">'.nl2br(esc_html($quote)).'</blockquote>';
         },
         $text
     );
 }
 
-// --- SHARED EMAIL CSS GENERATION ---
+// --- CENTRALIZED EMAIL CSS GENERATION ---
+// This function generates the unified CSS for all email templates
 function wns_generate_email_styles() {
     // Get design settings
     $header_color = get_option('wns_email_header_color', '#2c5aa0');
     $accent_color = get_option('wns_email_accent_color', '#0073aa');
     $text_color = get_option('wns_email_text_color', '#333333');
-    $bg_color = get_option('wns_email_background_color', '#f9f9f9');
     $font_family = get_option('wns_email_font_family', 'Arial, sans-serif');
     $card_bg = get_option('wns_email_card_bg_color', '#f8f8f8');
     $card_border = get_option('wns_email_card_border_color', '#e5e5e5');
@@ -538,14 +534,50 @@ function wns_generate_email_styles() {
     $line_height = get_option('wns_email_line_height', '1.5');
     
     return "
-body {background: {$bg_color}; font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};}
-.content {color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid {$header_color};}
-.email-header {background: {$header_color}; color: #fff; text-align: center; padding: {$content_padding}px;}
-.email-header h1 {margin: 0 !important; padding: 0; border: none;}
-h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom:0.2em; font-size:1.7em; margin-bottom:1em;}
-.section-title {color: {$text_color}; font-size:1.45em; margin-top:1.5em; margin-bottom:0.8em; font-weight:700; margin-left: {$content_padding}px;}
-.intro {font-size: 1.25em; margin: 1.5em {$content_padding}px 1.2em; color: {$text_color};}
-.card {
+/* Email body wrapper - ONLY targets actual body tags in emails/iframes */
+body.wns-email-body {
+    font-family: {$font_family};
+    margin: 0;
+    padding: {$content_padding}px;
+    color: {$text_color};
+    line-height: {$line_height};
+}
+.wns-email-content {
+    color: {$text_color};
+    background: #fff;
+    padding: 0;
+    margin: 0 auto;
+    border-radius: {$card_radius}px;
+    overflow: hidden;
+    max-width: 700px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    border: 1px solid {$header_color};
+}
+.wns-email-header {
+    background: {$header_color};
+    color: #fff;
+    text-align: center;
+    padding: {$content_padding}px;
+}
+.wns-email-header h1 {
+    margin: 0 !important;
+    padding: 0;
+    border: none;
+}
+.wns-section-title {
+    color: {$text_color};
+    font-size: 1.45em;
+    margin-top: 1.5em;
+    margin-bottom: 0.8em;
+    font-weight: 700;
+    margin-left: {$content_padding}px;
+}
+.wns-intro {
+    font-size: 1.25em;
+    margin: 1.5em {$content_padding}px 1.2em;
+    color: {$text_color};
+}
+.wns-card {
     background: {$card_bg};
     border: 1px solid {$card_border};
     border-radius: {$card_radius}px;
@@ -553,18 +585,18 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
     padding: {$content_padding}px;
     box-sizing: border-box;
 }
-.wp-posts, .forum-section {
+.wns-wp-posts, .wns-forum-section {
     margin-bottom: 2em;
     padding: 0 {$content_padding}px;
 }
-.forum-header, .thread-header {
+.wns-forum-header, .wns-thread-header {
     display: flex;
     align-items: center;
     margin-top: 1.2em;
     margin-bottom: 0.7em;
     margin-left: {$content_padding}px;
 }
-.category-label {
+.wns-category-label {
     color: #fff;
     background: {$header_color};
     display: inline-block;
@@ -574,12 +606,12 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
     font-weight: 600;
     margin-right: 0.6em;
 }
-.forum-name {
+.wns-forum-name {
     font-size: 1.10em;
     font-weight: bold;
     color: {$text_color};
 }
-.topic-label {
+.wns-topic-label {
     color: #fff;
     background: {$accent_color};
     display: inline-block;
@@ -589,41 +621,45 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
     font-weight: 600;
     margin-right: 0.6em;
 }
-.thread-name {
+.wns-thread-name {
     font-size: 1.02em;
     font-weight: bold;
     color: {$text_color};
 }
-.post-title {
+.wns-post-title {
     font-size: 1.02em;
     font-weight: 700 !important;
     color: {$text_color};
     margin-bottom: 0.15em;
 }
-.post-meta {
+.wns-post-meta {
     color: {$text_color};
     font-size: 0.95em;
     margin-bottom: 0.3em;
 }
-/* For forum posts we want author/date to use the title style so it stands out
-   (the post title itself will not be displayed in forum cards). */
-.forum-post .post-meta {
+/* For forum posts we want author/date to use the title style so it stands out */
+.wns-forum-post .wns-post-meta {
     color: {$text_color};
     font-size: 1.02em;
     font-weight: 600;
     margin-bottom: 0.3em;
 }
-
-/* Reply label + icon - subtle gray to avoid distracting from content */
-.reply-label { color: #777777; font-size: 0.95em; font-weight:600; margin-bottom:0.15em; display:inline-block; }
-.post-excerpt {
+/* Reply label - subtle gray to avoid distracting from content */
+.wns-reply-label {
+    color: #777777;
+    font-size: 0.95em;
+    font-weight: 600;
+    margin-bottom: 0.15em;
+    display: inline-block;
+}
+.wns-post-excerpt {
     color: {$text_color};
     font-size: 1em;
     margin-bottom: 0.7em;
     margin-top: 0.1em;
     line-height: {$line_height};
 }
-.forum-quote {
+.wns-forum-quote {
     border-left: 3px solid {$accent_color};
     background: #fffbe7;
     color: #444;
@@ -633,16 +669,16 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
     font-size: 0.97em;
     border-radius: 5px;
 }
-.post-readmore {
+.wns-post-readmore {
     margin-top: 0.3em;
 }
-.post-readmore a {
+.wns-post-readmore a {
     color: {$accent_color};
     font-size: 0.98em;
     text-decoration: underline;
     font-weight: 600;
 }
-.email-footer {
+.wns-email-footer {
     background: #f5f5f5;
     color: #666;
     padding: 15px {$content_padding}px;
@@ -651,8 +687,46 @@ h1 {color: {$text_color}; border-bottom:2px solid {$card_border}; padding-bottom
     border-top: 1px solid #e0e0e0;
     margin-top: 20px;
 }
-@media (max-width: 600px) { .content {margin: 1em;} }
+@media (max-width: 600px) { 
+    .wns-email-content {margin: 1em;} 
+    body.wns-email-body {padding: 10px;}
+}
 ";
+}
+
+// --- UNIFIED EMAIL TEMPLATE WRAPPER ---
+// This function wraps content in the standard email HTML template with CSS
+function wns_wrap_email_template($content, $title = null) {
+    if ($title === null) {
+        $title = wns_t('default_header_title');
+    }
+    
+    // Get design settings for inline styles
+    $font_family = get_option('wns_email_font_family', 'Arial, sans-serif');
+    $content_padding = get_option('wns_email_content_padding', '20');
+    $text_color = get_option('wns_email_text_color', '#333333');
+    $line_height = get_option('wns_email_line_height', '1.5');
+    $card_radius = get_option('wns_email_card_radius', '7');
+    $header_color = get_option('wns_email_header_color', '#2c5aa0');
+    
+    $html = "<!DOCTYPE html>
+<html>
+<head>
+<title>" . esc_html($title) . "</title>
+<meta charset='utf-8' />
+<meta name='viewport' content='width=device-width, initial-scale=1.0' />
+<style>
+" . wns_generate_email_styles() . "
+</style>
+</head>
+<body class='wns-email-body' style='font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};'>
+<div class='wns-email-content' style='color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid {$header_color};'>
+{$content}
+</div>
+</body>
+</html>";
+    
+    return $html;
 }
 
 // --- BUILD PREVIEW CONTENT ONLY (no header/styles) ---
@@ -669,7 +743,7 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
     ) {
         $accent_color = get_option('wns_email_accent_color', '#0073aa');
         $text_color = get_option('wns_email_text_color', '#333333');
-        $message .= '<div class="card" style="text-align:center; padding:2em 1em;">
+        $message .= '<div class="wns-card" style="text-align:center; padding:2em 1em;">
             <p style="font-size:1.2em; color:'.$text_color.'; margin-bottom:1.2em;">'.wns_t('no_new_posts_this_week').'</p>
             <p>
                 <a href="' . esc_url(home_url('/')) . '" style="color:'.$accent_color.'; font-weight:600; text-decoration:underline; margin-right:1.5em;">'.wns_t('visit_website').'</a>
@@ -698,9 +772,9 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
             $posts_by_cat[$cat_slug]['posts'][] = $post;
         }
 
-        $message .= '<section class="wp-posts"><h2 class="section-title">'.wns_t('latest_articles_website').'</h2>';
+        $message .= '<section class="wns-wp-posts"><h2 class="wns-section-title">'.wns_t('latest_articles_website').'</h2>';
         foreach ($posts_by_cat as $cat) {
-            $message .= '<div class="forum-header"><span class="category-label">'.wns_t('category_label').'</span><span class="forum-name">'.esc_html($cat['cat_name']).'</span></div>';
+            $message .= '<div class="wns-forum-header"><span class="wns-category-label">'.wns_t('category_label').'</span><span class="wns-forum-name">'.esc_html($cat['cat_name']).'</span></div>';
             foreach ($cat['posts'] as $post) {
                 $url = get_permalink($post->ID);
                 $date = get_the_date('d.m.Y', $post->ID);
@@ -708,11 +782,11 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
                 $excerpt_raw = wp_trim_words(strip_tags($post->post_content), WNS_EXCERPT_WORDS, '...');
                 $excerpt = wns_format_quotes($excerpt_raw);
 
-                $message .= "<div class='card post-card'>";
-                $message .= "<div class='post-title'>{$title}</div>";
-                $message .= "<div class='post-meta'>{$date}</div>";
-                $message .= "<div class='post-excerpt'>{$excerpt}</div>";
-                $message .= "<div class='post-readmore'><a href='{$url}'>Read more on website...</a></div>";
+                $message .= "<div class='wns-card wns-post-card'>";
+                $message .= "<div class='wns-post-title'>{$title}</div>";
+                $message .= "<div class='wns-post-meta'>{$date}</div>";
+                $message .= "<div class='wns-post-excerpt'>{$excerpt}</div>";
+                $message .= "<div class='wns-post-readmore'><a href='{$url}'>Read more on website...</a></div>";
                 $message .= "</div>";
             }
         }
@@ -721,11 +795,11 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
 
     // Forum section
     if ($include_forum && !empty($summary)) {
-        $message .= '<section class="forum-section"><h2 class="section-title">'.wns_t('latest_forum_posts').'</h2>';
+        $message .= '<section class="wns-forum-section"><h2 class="wns-section-title">'.wns_t('latest_forum_posts').'</h2>';
         foreach ($summary as $forum) {
-            $message .= '<div class="forum-header"><span class="category-label">'.wns_t('forum').'</span><span class="forum-name">'.esc_html($forum['forum_name']).'</span></div>';
+            $message .= '<div class="wns-forum-header"><span class="wns-category-label">'.wns_t('forum').'</span><span class="wns-forum-name">'.esc_html($forum['forum_name']).'</span></div>';
             foreach ($forum['threads'] as $thread) {
-                $message .= '<div class="thread-header"><span class="topic-label">'.wns_t('topic').'</span><span class="thread-name">'.esc_html($thread['thread_subject']).'</span></div>';
+                $message .= '<div class="wns-thread-header"><span class="wns-topic-label">'.wns_t('topic').'</span><span class="wns-thread-name">'.esc_html($thread['thread_subject']).'</span></div>';
                 foreach ($thread['posts'] as $post) {
                     $url = function_exists('wpforo_topic') ? wpforo_topic($post->topicid, 'url') : site_url("/community/topic/{$post->topicid}");
                     $postdate = date('d.m.Y', strtotime($post->created));
@@ -735,7 +809,7 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
                     $text_color = get_option('wns_email_text_color', '#333333');
                     $body = wp_kses_post(wns_format_quotes($post->body));
                     $excerpt_html = wns_truncate_html_words($body, WNS_EXCERPT_WORDS, $url);
-                    $message .= "<div class='card forum-post'>";
+                    $message .= "<div class='wns-card wns-forum-post'>";
                     $post_title_raw = trim((string)$post->title);
                     $is_reply = false;
                     if (empty($post_title_raw)) {
@@ -747,13 +821,13 @@ function wns_build_preview_content_only($summary, $count, $wp_posts = []) {
                     }
                     if ($is_reply) {
                         // Only show the localized Reply label (no icon)
-                        $message .= "<div class='reply-label'>" . esc_html(wns_t('reply_label', 'Reply')) . "</div>";
+                        $message .= "<div class='wns-reply-label'>" . esc_html(wns_t('reply_label', 'Reply')) . "</div>";
                     }
                     // Inline style for post-meta so preview shows bold/colored text reliably
                     $meta_inline = 'style="color: ' . esc_attr($text_color) . '; font-weight:600; font-size:1.02em; margin-bottom:0.3em;"';
-                    $message .= "<div class='post-meta' {$meta_inline}>" . ($author ? esc_html($author) . ' &middot; ' : '') . "{$postdate} {$posttime}</div>";
-                    $message .= "<div class='post-excerpt'>{$excerpt_html}</div>";
-                    $message .= "<div class='post-readmore'><a href='{$url}'>Read more on forum...</a></div>";
+                    $message .= "<div class='wns-post-meta' {$meta_inline}>" . ($author ? esc_html($author) . ' &middot; ' : '') . "{$postdate} {$posttime}</div>";
+                    $message .= "<div class='wns-post-excerpt'>{$excerpt_html}</div>";
+                    $message .= "<div class='wns-post-readmore'><a href='{$url}'>Read more on forum...</a></div>";
                     $message .= "</div>";
                 }
             }
@@ -770,7 +844,6 @@ function wns_add_inline_styles($content) {
     $header_color = get_option('wns_email_header_color', '#2c5aa0');
     $accent_color = get_option('wns_email_accent_color', '#0073aa');
     $text_color = get_option('wns_email_text_color', '#333333');
-    $bg_color = get_option('wns_email_background_color', '#f9f9f9');
     $font_family = get_option('wns_email_font_family', 'Arial, sans-serif');
     $card_bg = get_option('wns_email_card_bg_color', '#f8f8f8');
     $card_border = get_option('wns_email_card_border_color', '#e5e5e5');
@@ -780,12 +853,12 @@ function wns_add_inline_styles($content) {
     
     // Replace class-based elements with inline styles for better email client compatibility
     $replacements = [
-        "class='wp-posts'" => "class='wp-posts' style='margin-bottom: 2em; padding: 0 {$content_padding}px;'",
-        "class='forum-section'" => "class='forum-section' style='margin-bottom: 2em; padding: 0 {$content_padding}px;'",
-        "class='section-title'" => "class='section-title' style='color: {$text_color}; font-size: 1.45em; margin-top: 1.5em; margin-bottom: 0.8em; font-weight: 700; margin-left: {$content_padding}px;'",
-        "class='card post-card'" => "class='card post-card' style='background: {$card_bg}; border: 1px solid {$card_border}; border-radius: {$card_radius}px; margin: 0 {$content_padding}px 1.5em; padding: {$content_padding}px; box-sizing: border-box;'",
-        "class='card forum-post'" => "class='card forum-post' style='background: {$card_bg}; border: 1px solid {$card_border}; border-radius: {$card_radius}px; margin: 0 {$content_padding}px 1.5em; padding: {$content_padding}px; box-sizing: border-box;'",
-        "class='card'" => "class='card' style='background: {$card_bg}; border: 1px solid {$card_border}; border-radius: {$card_radius}px; margin: 0 {$content_padding}px 1.5em; padding: {$content_padding}px; box-sizing: border-box;'"
+        "class='wns-wp-posts'" => "class='wns-wp-posts' style='margin-bottom: 2em; padding: 0 {$content_padding}px;'",
+        "class='wns-forum-section'" => "class='wns-forum-section' style='margin-bottom: 2em; padding: 0 {$content_padding}px;'",
+        "class='wns-section-title'" => "class='wns-section-title' style='color: {$text_color}; font-size: 1.45em; margin-top: 1.5em; margin-bottom: 0.8em; font-weight: 700; margin-left: {$content_padding}px;'",
+        "class='wns-card wns-post-card'" => "class='wns-card wns-post-card' style='background: {$card_bg}; border: 1px solid {$card_border}; border-radius: {$card_radius}px; margin: 0 {$content_padding}px 1.5em; padding: {$content_padding}px; box-sizing: border-box;'",
+        "class='wns-card wns-forum-post'" => "class='wns-card wns-forum-post' style='background: {$card_bg}; border: 1px solid {$card_border}; border-radius: {$card_radius}px; margin: 0 {$content_padding}px 1.5em; padding: {$content_padding}px; box-sizing: border-box;'",
+        "class='wns-card'" => "class='wns-card' style='background: {$card_bg}; border: 1px solid {$card_border}; border-radius: {$card_radius}px; margin: 0 {$content_padding}px 1.5em; padding: {$content_padding}px; box-sizing: border-box;'"
     ];
     
     foreach ($replacements as $search => $replace) {
@@ -811,7 +884,6 @@ function wns_build_email($summary, $count, $wp_posts = []) {
     $header_color = get_option('wns_email_header_color', '#2c5aa0');
     $accent_color = get_option('wns_email_accent_color', '#0073aa');
     $text_color = get_option('wns_email_text_color', '#333333');
-    $bg_color = get_option('wns_email_background_color', '#f9f9f9');
     $font_family = get_option('wns_email_font_family', 'Arial, sans-serif');
     $logo_url = get_option('wns_email_logo_url', '');
     $footer_text = get_option('wns_email_footer_text', '');
@@ -838,14 +910,14 @@ function wns_build_email($summary, $count, $wp_posts = []) {
         }
     }
 
-    $message = "<div class='email-header' style='background: {$header_color}; color: #fff; text-align: center; padding: {$content_padding}px;'>{$header_content}</div><div class='intro' style='font-size: 1.25em; margin: 1.5em {$content_padding}px 1.2em; color: {$text_color};'><strong>".esc_html($intro)."</strong></div>";
+    $message = "<div class='wns-email-header' style='background: {$header_color}; color: #fff; text-align: center; padding: {$content_padding}px;'>{$header_content}</div><div class='wns-intro' style='font-size: 1.25em; margin: 1.5em {$content_padding}px 1.2em; color: {$text_color};'><strong>".esc_html($intro)."</strong></div>";
 
     // --- If no new posts ---
     if (
         (!$include_wp || empty($wp_posts)) &&
         (!$include_forum || empty($summary))
     ) {
-        $message .= '<div class="card" style="text-align:center; padding:2em 1em;">
+        $message .= '<div class="wns-card" style="text-align:center; padding:2em 1em;">
             <p style="font-size:1.2em; color:'.$text_color.'; margin-bottom:1.2em;">'.wns_t('no_new_posts_this_week').'</p>
             <p>
                 <a href="' . esc_url(home_url('/')) . '" style="color:'.$accent_color.'; font-weight:600; text-decoration:underline; margin-right:1.5em;">'.wns_t('visit_website').'</a>
@@ -873,9 +945,9 @@ function wns_build_email($summary, $count, $wp_posts = []) {
             $posts_by_cat[$cat_slug]['posts'][] = $post;
         }
 
-        $message .= '<section class="wp-posts"><h2 class="section-title">'.wns_t('latest_articles_website').'</h2>';
+        $message .= '<section class="wns-wp-posts"><h2 class="wns-section-title">'.wns_t('latest_articles_website').'</h2>';
         foreach ($posts_by_cat as $cat) {
-            $message .= '<div class="forum-header"><span class="category-label">'.wns_t('category_label').'</span><span class="forum-name">'.esc_html($cat['cat_name']).'</span></div>';
+            $message .= '<div class="wns-forum-header"><span class="wns-category-label">'.wns_t('category_label').'</span><span class="wns-forum-name">'.esc_html($cat['cat_name']).'</span></div>';
             foreach ($cat['posts'] as $post) {
                 $url = get_permalink($post->ID);
                 $date = get_the_date('d.m.Y', $post->ID);
@@ -883,11 +955,11 @@ function wns_build_email($summary, $count, $wp_posts = []) {
                 $excerpt_raw = wp_trim_words(strip_tags($post->post_content), WNS_EXCERPT_WORDS, '...');
                 $excerpt = wns_format_quotes($excerpt_raw);
 
-                $message .= "<div class='card post-card'>";
-                $message .= "<div class='post-title'>{$title}</div>";
-                $message .= "<div class='post-meta'>{$date}</div>";
-                $message .= "<div class='post-excerpt'>{$excerpt}</div>";
-                $message .= "<div class='post-readmore'><a href='{$url}'>Read more on website...</a></div>";
+                $message .= "<div class='wns-card wns-post-card'>";
+                $message .= "<div class='wns-post-title'>{$title}</div>";
+                $message .= "<div class='wns-post-meta'>{$date}</div>";
+                $message .= "<div class='wns-post-excerpt'>{$excerpt}</div>";
+                $message .= "<div class='wns-post-readmore'><a href='{$url}'>Read more on website...</a></div>";
                 $message .= "</div>";
             }
         }
@@ -896,11 +968,11 @@ function wns_build_email($summary, $count, $wp_posts = []) {
 
     // Forum section
     if ($include_forum && !empty($summary)) {
-        $message .= '<section class="forum-section"><h2 class="section-title">'.wns_t('latest_forum_posts').'</h2>';
+        $message .= '<section class="wns-forum-section"><h2 class="wns-section-title">'.wns_t('latest_forum_posts').'</h2>';
         foreach ($summary as $forum) {
-            $message .= '<div class="forum-header"><span class="category-label">'.wns_t('forum').'</span><span class="forum-name">'.esc_html($forum['forum_name']).'</span></div>';
+            $message .= '<div class="wns-forum-header"><span class="wns-category-label">'.wns_t('forum').'</span><span class="wns-forum-name">'.esc_html($forum['forum_name']).'</span></div>';
             foreach ($forum['threads'] as $thread) {
-                $message .= '<div class="thread-header"><span class="topic-label">'.wns_t('topic').'</span><span class="thread-name">'.esc_html($thread['thread_subject']).'</span></div>';
+                $message .= '<div class="wns-thread-header"><span class="wns-topic-label">'.wns_t('topic').'</span><span class="wns-thread-name">'.esc_html($thread['thread_subject']).'</span></div>';
                 foreach ($thread['posts'] as $post) {
                     $url = function_exists('wpforo_topic') ? wpforo_topic($post->topicid, 'url') : site_url("/community/topic/{$post->topicid}");
                     $postdate = date('d.m.Y', strtotime($post->created));
@@ -908,7 +980,7 @@ function wns_build_email($summary, $count, $wp_posts = []) {
                     $author = isset($post->userid) ? esc_html(get_the_author_meta('display_name', $post->userid)) : '';
                     $body = wp_kses_post(wns_format_quotes($post->body));
                     $excerpt_html = wns_truncate_html_words($body, WNS_EXCERPT_WORDS, $url);
-                        $message .= "<div class='card forum-post'>";
+                        $message .= "<div class='wns-card wns-forum-post'>";
                         // Determine if this post is a reply. Many forum systems prefix replies with 'RE:' or leave title empty.
                         $post_title_raw = trim((string)$post->title);
                         $is_reply = false;
@@ -923,14 +995,14 @@ function wns_build_email($summary, $count, $wp_posts = []) {
 
                         if ($is_reply) {
                             // Only show the localized Reply label (no icon)
-                            $message .= "<div class='reply-label'>" . esc_html(wns_t('reply_label', 'Reply')) . "</div>";
+                            $message .= "<div class='wns-reply-label'>" . esc_html(wns_t('reply_label', 'Reply')) . "</div>";
                         }
 
                         // Inline style for post-meta so preview shows bold/colored text reliably
                         $meta_inline = 'style="color: ' . esc_attr($text_color) . '; font-weight:700 !important; font-size:1.02em; margin-bottom:0.3em;"';
-                        $message .= "<div class='post-meta' {$meta_inline}>" . ($author ? esc_html($author) . ' &middot; ' : '') . "{$postdate} {$posttime}</div>";
-                        $message .= "<div class='post-excerpt'>{$excerpt_html}</div>";
-                        $message .= "<div class='post-readmore'><a href='{$url}'>".wns_t('read_more_forum')."</a></div>";
+                        $message .= "<div class='wns-post-meta' {$meta_inline}>" . ($author ? esc_html($author) . ' &middot; ' : '') . "{$postdate} {$posttime}</div>";
+                        $message .= "<div class='wns-post-excerpt'>{$excerpt_html}</div>";
+                        $message .= "<div class='wns-post-readmore'><a href='{$url}'>".wns_t('read_more_forum')."</a></div>";
                         $message .= "</div>";
                 }
             }
@@ -938,37 +1010,15 @@ function wns_build_email($summary, $count, $wp_posts = []) {
         $message .= '</section>';
     }
 
-    $html_header = "\n<!DOCTYPE html>\n<html>\n<head>\n<title>".wns_t('default_header_title')."</title>\n<meta charset='utf-8' />\n<style>
-" . wns_generate_email_styles() . "
-</style>\n</head>\n<body style='background: {$bg_color}; font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};'>\n<div class='content' style='color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid {$header_color};'>\n";
-    
-    // Replace variables in HTML header with actual values
-    $html_header = str_replace([
-        '{$bg_color}', 
-        '{$font_family}', 
-        '{$content_padding}', 
-        '{$text_color}', 
-        '{$line_height}',
-        '{$card_radius}',
-        '{$header_color}'
-    ], [
-        $bg_color, 
-        $font_family, 
-        $content_padding, 
-        $text_color, 
-        $line_height,
-        $card_radius,
-        $header_color
-    ], $html_header);
     if (!empty($footer_text)) {
-        $message .= '<div class="email-footer">' . nl2br(esc_html($footer_text)) . '</div>';
+        $message .= '<div class="wns-email-footer">' . nl2br(esc_html($footer_text)) . '</div>';
     }
     
     // Apply inline styles for better email client compatibility
     $message = wns_add_inline_styles($message);
     
-    $html_footer = "</div></body></html>";
-    return $html_header . $message . $html_footer;
+    // Use unified template wrapper
+    return wns_wrap_email_template($message);
 }
 
 /**
@@ -1137,7 +1187,6 @@ function wns_build_demo_email() {
     $header_color = get_option('wns_email_header_color', '#2c5aa0');
     $accent_color = get_option('wns_email_accent_color', '#0073aa');
     $text_color = get_option('wns_email_text_color', '#333333');
-    $bg_color = get_option('wns_email_background_color', '#f9f9f9');
     $font_family = get_option('wns_email_font_family', 'Arial, sans-serif');
     $logo_url = get_option('wns_email_logo_url', '');
     $footer_text = get_option('wns_email_footer_text', '');
@@ -1164,10 +1213,10 @@ function wns_build_demo_email() {
         }
     }
 
-    $message = "<div class='email-header' style='background: {$header_color}; color: #fff; text-align: center; padding: {$content_padding}px;'>{$header_content}</div><div class='intro' style='font-size: 1.25em; margin: 1.5em {$content_padding}px 1.2em; color: {$text_color};'><strong>".esc_html($intro)."</strong></div>";
+    $message = "<div class='wns-email-header' style='background: {$header_color}; color: #fff; text-align: center; padding: {$content_padding}px;'>{$header_content}</div><div class='wns-intro' style='font-size: 1.25em; margin: 1.5em {$content_padding}px 1.2em; color: {$text_color};'><strong>".esc_html($intro)."</strong></div>";
 
     // WordPress posts section with demo data
-    $message .= '<section class="wp-posts"><h2 class="section-title">'.wns_t('latest_articles_website').'</h2>';
+    $message .= '<section class="wns-wp-posts"><h2 class="wns-section-title">'.wns_t('latest_articles_website').'</h2>';
     $posts_by_cat = [];
     foreach ($demo_data['wp_posts'] as $post) {
         $cat_name = $post->category;
@@ -1182,7 +1231,7 @@ function wns_build_demo_email() {
     }
 
     foreach ($posts_by_cat as $cat) {
-        $message .= '<div class="forum-header"><span class="category-label">'.wns_t('category_label').'</span><span class="forum-name">'.esc_html($cat['cat_name']).'</span></div>';
+        $message .= '<div class="wns-forum-header"><span class="wns-category-label">'.wns_t('category_label').'</span><span class="wns-forum-name">'.esc_html($cat['cat_name']).'</span></div>';
         foreach ($cat['posts'] as $post) {
             $url = wns_get_demo_post_permalink($post->ID);
             $date = date('M j, Y', strtotime($post->post_date));
@@ -1190,22 +1239,22 @@ function wns_build_demo_email() {
             $excerpt_raw = wp_trim_words(strip_tags($post->post_content), WNS_EXCERPT_WORDS, '...');
             $excerpt = wns_format_quotes($excerpt_raw);
 
-            $message .= "<div class='card post-card'>";
-            $message .= "<div class='post-title'>{$title}</div>";
-            $message .= "<div class='post-meta'>{$date}</div>";
-            $message .= "<div class='post-excerpt'>{$excerpt}</div>";
-            $message .= "<div class='post-readmore'><a href='{$url}'>".wns_t('read_more_website')."</a></div>";
+            $message .= "<div class='wns-card wns-post-card'>";
+            $message .= "<div class='wns-post-title'>{$title}</div>";
+            $message .= "<div class='wns-post-meta'>{$date}</div>";
+            $message .= "<div class='wns-post-excerpt'>{$excerpt}</div>";
+            $message .= "<div class='wns-post-readmore'><a href='{$url}'>".wns_t('read_more_website')."</a></div>";
             $message .= "</div>";
         }
     }
     $message .= '</section>';
 
     // Forum section with demo data
-    $message .= '<section class="forum-section"><h2 class="section-title">'.wns_t('latest_forum_posts').'</h2>';
+    $message .= '<section class="wns-forum-section"><h2 class="wns-section-title">'.wns_t('latest_forum_posts').'</h2>';
     foreach ($demo_data['forum_summary'] as $forum) {
-        $message .= '<div class="forum-header"><span class="category-label">'.wns_t('forum').'</span><span class="forum-name">'.esc_html($forum['forum_name']).'</span></div>';
+        $message .= '<div class="wns-forum-header"><span class="wns-category-label">'.wns_t('forum').'</span><span class="wns-forum-name">'.esc_html($forum['forum_name']).'</span></div>';
         foreach ($forum['threads'] as $thread) {
-            $message .= '<div class="thread-header"><span class="topic-label">'.wns_t('topic_label').'</span><span class="thread-name">'.esc_html($thread['thread_subject']).'</span></div>';
+            $message .= '<div class="wns-thread-header"><span class="wns-topic-label">'.wns_t('topic_label').'</span><span class="wns-thread-name">'.esc_html($thread['thread_subject']).'</span></div>';
             foreach ($thread['posts'] as $post) {
                 $url = site_url("/community/topic/{$post->topicid}");
                 $postdate = date('M j, Y', strtotime($post->created));
@@ -1213,7 +1262,7 @@ function wns_build_demo_email() {
                 $author = wns_get_demo_author_name($post->userid);
                 $body = wp_kses_post(wns_format_quotes($post->body));
                 $excerpt_html = wns_truncate_html_words($body, WNS_EXCERPT_WORDS, $url);
-                $message .= "<div class='card forum-post'>";
+                $message .= "<div class='wns-card wns-forum-post'>";
                 // Determine if this post is a reply. Many forum systems prefix replies with 'RE:' or leave title empty.
                 $post_title_raw = trim((string)$post->title);
                 $is_reply = false;
@@ -1228,14 +1277,14 @@ function wns_build_demo_email() {
 
                 if ($is_reply) {
                     // Only show the localized Reply label (no icon)
-                    $message .= "<div class='reply-label'>" . esc_html(wns_t('reply_label', 'Reply')) . "</div>";
+                    $message .= "<div class='wns-reply-label'>" . esc_html(wns_t('reply_label', 'Reply')) . "</div>";
                 }
 
                 // Inline style for post-meta so preview shows bold/colored text reliably
                 $meta_inline = 'style="color: ' . esc_attr($text_color) . '; font-weight:700 !important; font-size:1.02em; margin-bottom:0.3em;"';
-                $message .= "<div class='post-meta' {$meta_inline}>" . ($author ? esc_html($author) . ' &middot; ' : '') . "{$postdate} {$posttime}</div>";
-                $message .= "<div class='post-excerpt'>{$excerpt_html}</div>";
-                $message .= "<div class='post-readmore'><a href='{$url}'>".wns_t('read_more_forum')."</a></div>";
+                $message .= "<div class='wns-post-meta' {$meta_inline}>" . ($author ? esc_html($author) . ' &middot; ' : '') . "{$postdate} {$posttime}</div>";
+                $message .= "<div class='wns-post-excerpt'>{$excerpt_html}</div>";
+                $message .= "<div class='wns-post-readmore'><a href='{$url}'>".wns_t('read_more_forum')."</a></div>";
                 $message .= "</div>";
             }
         }
@@ -1244,37 +1293,14 @@ function wns_build_demo_email() {
 
     // Add footer if configured
     if (!empty($footer_text)) {
-        $message .= '<div class="email-footer">' . nl2br(esc_html($footer_text)) . '</div>';
+        $message .= '<div class="wns-email-footer">' . nl2br(esc_html($footer_text)) . '</div>';
     }
-
-    $html_header = "<!DOCTYPE html>\n<html>\n<head>\n<title>".wns_t('weekly_newsletter_title')."</title>\n<meta charset='utf-8' />\n<style>
-" . wns_generate_email_styles() . "
-</style>\n</head>\n<body style='background: {$bg_color}; font-family: {$font_family}; margin:0; padding:{$content_padding}px; color: {$text_color}; line-height: {$line_height};'>\n<div class='content' style='color: {$text_color}; background:#fff; padding: 0; margin: 0 auto; border-radius: {$card_radius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid {$header_color};'>\n";
-    
-    // Replace variables in HTML header with actual values
-    $html_header = str_replace([
-        '{$bg_color}', 
-        '{$font_family}', 
-        '{$content_padding}', 
-        '{$text_color}', 
-        '{$line_height}',
-        '{$card_radius}',
-        '{$header_color}'
-    ], [
-        $bg_color, 
-        $font_family, 
-        $content_padding, 
-        $text_color, 
-        $line_height,
-        $card_radius,
-        $header_color
-    ], $html_header);
     
     // Apply inline styles for better email client compatibility
     $message = wns_add_inline_styles($message);
     
-    $html_footer = "</div></body></html>";
-    return $html_header . $message . $html_footer;
+    // Use unified template wrapper
+    return wns_wrap_email_template($message, wns_t('weekly_newsletter_title'));
 }
 
 // --- MAIN SEND FUNCTION ---
@@ -1604,7 +1630,6 @@ function wns_register_settings() {
     register_setting('wns_design_group', 'wns_email_header_color');
     register_setting('wns_design_group', 'wns_email_accent_color');
     register_setting('wns_design_group', 'wns_email_text_color');
-    register_setting('wns_design_group', 'wns_email_background_color');
     register_setting('wns_design_group', 'wns_email_font_family');
     register_setting('wns_design_group', 'wns_email_logo_url');
     register_setting('wns_design_group', 'wns_email_footer_text');
@@ -2029,7 +2054,6 @@ function wns_settings_page() {
         top: 32px;
         max-height: calc(100vh - 60px);
         overflow-y: auto;
-        background: #f5f5f5;
         border-radius: 8px;
         padding: 20px;
         min-width: 700px;
@@ -2039,7 +2063,6 @@ function wns_settings_page() {
     .wns-email-preview {
         background: white;
         border-radius: 8px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         overflow: hidden;
         width: 100%;
         max-width: 800px;
@@ -2693,8 +2716,195 @@ function wns_settings_page() {
                     
                     <script>
                     document.addEventListener('DOMContentLoaded', function() {
+                        // Get all form inputs for real-time updates
+                        var designInputs = {
+                            headerTitle: document.getElementById('header-title'),
+                            headerSubtitle: document.getElementById('header-subtitle'),
+                            logoUrl: document.getElementById('logo-url'),
+                            introText: document.getElementById('intro-text'),
+                            headerColor: document.getElementById('header-color'),
+                            headerTextSize: document.getElementById('header-text-size'),
+                            accentColor: document.getElementById('accent-color'),
+                            textColor: document.getElementById('text-color'),
+                            cardBgColor: document.getElementById('card-bg-color'),
+                            cardBorderColor: document.getElementById('card-border-color'),
+                            contentPadding: document.getElementById('content-padding'),
+                            cardRadius: document.getElementById('card-radius'),
+                            lineHeight: document.getElementById('line-height'),
+                            fontFamily: document.getElementById('font-family'),
+                            footerText: document.getElementById('footer-text')
+                        };
+                        
                         // Load actual email content with current design settings
                         loadEmailPreview();
+                        
+                        // Add event listeners to all design inputs for real-time updates
+                        Object.values(designInputs).forEach(function(input) {
+                            if (input) {
+                                input.addEventListener('input', loadEmailPreview);
+                                input.addEventListener('change', loadEmailPreview);
+                            }
+                        });
+                        
+                        // Generate dynamic CSS for email based on current settings
+                        function generateDynamicEmailCSS(settings) {
+                            return `
+body.wns-email-body {
+    font-family: ${settings.fontFamily};
+    margin: 0;
+    padding: ${settings.contentPadding}px;
+    color: ${settings.textColor};
+    line-height: ${settings.lineHeight};
+}
+.wns-email-content {
+    color: ${settings.textColor};
+    background: #fff;
+    padding: 0;
+    margin: 0 auto;
+    border-radius: ${settings.cardRadius}px;
+    overflow: hidden;
+    max-width: 700px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    border: 1px solid ${settings.headerColor};
+}
+.wns-email-header {
+    background: ${settings.headerColor};
+    color: #fff;
+    text-align: center;
+    padding: ${settings.contentPadding}px;
+}
+.wns-email-header h1 {
+    margin: 0 !important;
+    padding: 0;
+    border: none;
+}
+.wns-section-title {
+    color: ${settings.textColor};
+    font-size: 1.45em;
+    margin-top: 1.5em;
+    margin-bottom: 0.8em;
+    font-weight: 700;
+    margin-left: ${settings.contentPadding}px;
+}
+.wns-intro {
+    font-size: 1.25em;
+    margin: 1.5em ${settings.contentPadding}px 1.2em;
+    color: ${settings.textColor};
+}
+.wns-card {
+    background: ${settings.cardBgColor};
+    border: 1px solid ${settings.cardBorderColor};
+    border-radius: ${settings.cardRadius}px;
+    margin: 0 ${settings.contentPadding}px 1.5em;
+    padding: ${settings.contentPadding}px;
+    box-sizing: border-box;
+}
+.wns-wp-posts, .wns-forum-section {
+    margin-bottom: 2em;
+    padding: 0 ${settings.contentPadding}px;
+}
+.wns-forum-header, .wns-thread-header {
+    display: flex;
+    align-items: center;
+    margin-top: 1.2em;
+    margin-bottom: 0.7em;
+    margin-left: ${settings.contentPadding}px;
+}
+.wns-category-label {
+    color: #fff;
+    background: ${settings.headerColor};
+    display: inline-block;
+    padding: 0.18em 0.7em;
+    border-radius: 6px;
+    font-size: 1em;
+    font-weight: 600;
+    margin-right: 0.6em;
+}
+.wns-forum-name {
+    font-size: 1.10em;
+    font-weight: bold;
+    color: ${settings.textColor};
+}
+.wns-topic-label {
+    color: #fff;
+    background: ${settings.accentColor};
+    display: inline-block;
+    padding: 0.13em 0.6em;
+    border-radius: 6px;
+    font-size: 0.97em;
+    font-weight: 600;
+    margin-right: 0.6em;
+}
+.wns-thread-name {
+    font-size: 1.02em;
+    font-weight: bold;
+    color: ${settings.textColor};
+}
+.wns-post-title {
+    font-size: 1.02em;
+    font-weight: 700 !important;
+    color: ${settings.textColor};
+    margin-bottom: 0.15em;
+}
+.wns-post-meta {
+    color: ${settings.textColor};
+    font-size: 0.95em;
+    margin-bottom: 0.3em;
+}
+.wns-forum-post .wns-post-meta {
+    color: ${settings.textColor};
+    font-size: 1.02em;
+    font-weight: 600;
+    margin-bottom: 0.3em;
+}
+.wns-reply-label {
+    color: #777777;
+    font-size: 0.95em;
+    font-weight: 600;
+    margin-bottom: 0.15em;
+    display: inline-block;
+}
+.wns-post-excerpt {
+    color: ${settings.textColor};
+    font-size: 1em;
+    margin-bottom: 0.7em;
+    margin-top: 0.1em;
+    line-height: ${settings.lineHeight};
+}
+.wns-forum-quote {
+    border-left: 3px solid ${settings.accentColor};
+    background: #fffbe7;
+    color: #444;
+    margin: 0.5em 0 0.7em 0;
+    padding: 0.5em 0.8em;
+    font-style: italic;
+    font-size: 0.97em;
+    border-radius: 5px;
+}
+.wns-post-readmore {
+    margin-top: 0.3em;
+}
+.wns-post-readmore a {
+    color: ${settings.accentColor};
+    font-size: 0.98em;
+    text-decoration: underline;
+    font-weight: 600;
+}
+.wns-email-footer {
+    background: #f5f5f5;
+    color: #666;
+    padding: 15px ${settings.contentPadding}px;
+    font-size: 12px;
+    text-align: center;
+    border-top: 1px solid #e0e0e0;
+    margin-top: 20px;
+}
+@media (max-width: 600px) { 
+    .wns-email-content {margin: 1em;} 
+    body.wns-email-body {padding: 10px;}
+}
+`;
+                        }
                         
                         function loadEmailPreview() {
                             var container = document.getElementById('preview-email-container');
@@ -2710,25 +2920,23 @@ function wns_settings_page() {
                             container.innerHTML = '';
                             container.appendChild(iframe);
                             
-                            // Get current design settings
+                            // Get current design settings from form inputs (real-time values)
                             var designSettings = {
-                                headerTitle: '<?php echo esc_js(get_option('wns_email_header_title', 'Weekly Newsletter')); ?>',
-                                headerSubtitle: '<?php echo esc_js(get_option('wns_email_header_subtitle', '')); ?>',
-                                logoUrl: '<?php echo esc_js(get_option('wns_email_logo_url', '')); ?>',
-                                introText: '<?php echo esc_js(get_option('wns_email_intro_text', wns_t('intro_text_placeholder'))); ?>',
-                                headerColor: '<?php echo esc_js(get_option('wns_email_header_color', '#2c5aa0')); ?>',
-                                headerTextSize: '<?php echo esc_js(get_option('wns_email_header_text_size', '28')); ?>',
-                                accentColor: '<?php echo esc_js(get_option('wns_email_accent_color', '#0073aa')); ?>',
-                                textColor: '<?php echo esc_js(get_option('wns_email_text_color', '#333333')); ?>',
-                                textColor: '<?php echo esc_js(get_option('wns_email_text_color', '#333333')); ?>',
-                                backgroundColor: '<?php echo esc_js(get_option('wns_email_background_color', '#f9f9f9')); ?>',
-                                cardBgColor: '<?php echo esc_js(get_option('wns_email_card_bg_color', '#f8f8f8')); ?>',
-                                cardBorderColor: '<?php echo esc_js(get_option('wns_email_card_border_color', '#e5e5e5')); ?>',
-                                contentPadding: '<?php echo esc_js(get_option('wns_email_content_padding', '20')); ?>',
-                                cardRadius: '<?php echo esc_js(get_option('wns_email_card_radius', '7')); ?>',
-                                lineHeight: '<?php echo esc_js(get_option('wns_email_line_height', '1.5')); ?>',
-                                fontFamily: '<?php echo esc_js(get_option('wns_email_font_family', 'Arial, sans-serif')); ?>',
-                                footerText: '<?php echo esc_js(get_option('wns_email_footer_text', '')); ?>'
+                                headerTitle: designInputs.headerTitle ? (designInputs.headerTitle.value || '<?php echo esc_js(get_option('wns_email_header_title', 'Weekly Newsletter')); ?>') : '<?php echo esc_js(get_option('wns_email_header_title', 'Weekly Newsletter')); ?>',
+                                headerSubtitle: designInputs.headerSubtitle ? designInputs.headerSubtitle.value : '<?php echo esc_js(get_option('wns_email_header_subtitle', '')); ?>',
+                                logoUrl: designInputs.logoUrl ? designInputs.logoUrl.value : '<?php echo esc_js(get_option('wns_email_logo_url', '')); ?>',
+                                introText: designInputs.introText ? (designInputs.introText.value || '<?php echo esc_js(get_option('wns_email_intro_text', wns_t('intro_text_placeholder'))); ?>') : '<?php echo esc_js(get_option('wns_email_intro_text', wns_t('intro_text_placeholder'))); ?>',
+                                headerColor: designInputs.headerColor ? designInputs.headerColor.value : '<?php echo esc_js(get_option('wns_email_header_color', '#2c5aa0')); ?>',
+                                headerTextSize: designInputs.headerTextSize ? designInputs.headerTextSize.value : '<?php echo esc_js(get_option('wns_email_header_text_size', '28')); ?>',
+                                accentColor: designInputs.accentColor ? designInputs.accentColor.value : '<?php echo esc_js(get_option('wns_email_accent_color', '#0073aa')); ?>',
+                                textColor: designInputs.textColor ? designInputs.textColor.value : '<?php echo esc_js(get_option('wns_email_text_color', '#333333')); ?>',
+                                cardBgColor: designInputs.cardBgColor ? designInputs.cardBgColor.value : '<?php echo esc_js(get_option('wns_email_card_bg_color', '#f8f8f8')); ?>',
+                                cardBorderColor: designInputs.cardBorderColor ? designInputs.cardBorderColor.value : '<?php echo esc_js(get_option('wns_email_card_border_color', '#e5e5e5')); ?>',
+                                contentPadding: designInputs.contentPadding ? designInputs.contentPadding.value : '<?php echo esc_js(get_option('wns_email_content_padding', '20')); ?>',
+                                cardRadius: designInputs.cardRadius ? designInputs.cardRadius.value : '<?php echo esc_js(get_option('wns_email_card_radius', '7')); ?>',
+                                lineHeight: designInputs.lineHeight ? designInputs.lineHeight.value : '<?php echo esc_js(get_option('wns_email_line_height', '1.5')); ?>',
+                                fontFamily: designInputs.fontFamily ? designInputs.fontFamily.value : '<?php echo esc_js(get_option('wns_email_font_family', 'Arial, sans-serif')); ?>',
+                                footerText: designInputs.footerText ? designInputs.footerText.value : '<?php echo esc_js(get_option('wns_email_footer_text', '')); ?>'
                             };
                             
                             // Build email HTML with actual content but using design settings
@@ -2863,43 +3071,25 @@ function wns_settings_page() {
                             
                             // Footer
                             var footerHTML = settings.footerText 
-                                ? '<div class="email-footer">' + settings.footerText.replace(/\n/g, '<br>') + '</div>'
+                                ? '<div class="wns-email-footer">' + settings.footerText.replace(/\n/g, '<br>') + '</div>'
                                 : '';
+                            
+                            // Use dynamically generated CSS for real-time updates
+                            var dynamicCSS = generateDynamicEmailCSS(settings);
                             
                             return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body {background: ${settings.backgroundColor}; font-family: ${settings.fontFamily}; margin:0; color: ${settings.textColor}; line-height: ${settings.lineHeight};}
-.content {color: ${settings.textColor}; background:#fff; padding: 0; margin: 0; border-radius: ${settings.cardRadius}px; overflow: hidden; max-width: 700px; border: 1px solid ${settings.headerColor};}
-.email-header {background: ${settings.headerColor}; color: #fff; text-align: center; padding: ${settings.contentPadding}px;}
-.email-header h1 {margin: 0 !important; padding: 0; border: none;}
-h1 {color: ${settings.textColor}; border-bottom:2px solid ${settings.cardBorderColor}; padding-bottom:0.2em; font-size:1.7em; margin-bottom:1em;}
-.section-title {color: ${settings.textColor}; font-size:1.45em; margin-top:1.5em; margin-bottom:0.8em; font-weight:700; margin-left: ${settings.contentPadding}px;}
-.intro {font-size: 1.25em; margin: 1.5em ${settings.contentPadding}px 1.2em; color: ${settings.textColor};}
-.card {background: ${settings.cardBgColor}; border: 1px solid ${settings.cardBorderColor}; border-radius: ${settings.cardRadius}px; margin: 0 ${settings.contentPadding}px 1.5em; padding: ${settings.contentPadding}px; box-sizing: border-box;}
-.wp-posts, .forum-section {margin-bottom: 2em; padding: 0 ${settings.contentPadding}px;}
-.forum-header, .thread-header {display: flex; align-items: center; margin-top: 1.2em; margin-bottom: 0.7em; margin-left: ${settings.contentPadding}px;}
-.category-label {color: #fff; background: ${settings.headerColor}; display: inline-block; padding: 0.18em 0.7em; border-radius: 6px; font-size: 1em; font-weight: 600; margin-right: 0.6em;}
-.forum-name {font-size: 1.10em; font-weight: bold; color: ${settings.textColor};}
-.topic-label {color: #fff; background: ${settings.accentColor}; display: inline-block; padding: 0.13em 0.6em; border-radius: 6px; font-size: 0.97em; font-weight: 600; margin-right: 0.6em;}
-.thread-name {font-size: 1.02em; font-weight: bold; color: ${settings.textColor};}
-.post-title {font-size: 1.02em; font-weight: 600; color: ${settings.textColor}; margin-bottom: 0.15em;}
-.post-title a {color: ${settings.textColor}; text-decoration: none;}
-.post-meta {color: ${settings.textColor}; font-size: 0.95em; margin-bottom: 0.3em;}
-.post-excerpt {color: ${settings.textColor}; font-size: 1em; margin-bottom: 0.7em; margin-top: 0.1em; line-height: ${settings.lineHeight};}
-.forum-quote {border-left: 3px solid ${settings.accentColor}; background: #fffbe7; color: #444; margin: 0.5em 0 0.7em 0; padding: 0.5em 0.8em; font-style: italic; font-size: 0.97em; border-radius: 5px;}
-.post-readmore {margin-top: 0.3em;}
-.post-readmore a {color: ${settings.accentColor}; font-size: 0.98em; text-decoration: underline; font-weight: 600;}
-.email-footer {background: #f5f5f5; color: #666; padding: 15px ${settings.contentPadding}px; font-size: 12px; text-align: center; border-top: 1px solid #e0e0e0; margin-top: 20px;}
-@media (max-width: 600px) { .content {margin: 1em;} }
+${dynamicCSS}
 </style>
 </head>
-<body>
-<div class='content'>
-<div class='email-header'>${headerContent}</div>
-<div class='intro'><strong>${introContent}</strong></div>
+<body class='wns-email-body' style='font-family: ${settings.fontFamily}; margin:0; padding:${settings.contentPadding}px; color: ${settings.textColor}; line-height: ${settings.lineHeight};'>
+<div class='wns-email-content' style='color: ${settings.textColor}; background:#fff; padding: 0; margin: 0 auto; border-radius: ${settings.cardRadius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid ${settings.headerColor};'>
+<div class='wns-email-header'>${headerContent}</div>
+<div class='wns-intro'><strong>${introContent}</strong></div>
 ${actualContent}
 ${footerHTML}
 </div>
@@ -2968,12 +3158,6 @@ ${footerHTML}
                                     <label class="wns-form-label"><?php wns_te('text_color_label'); ?></label>
                                     <input type="color" name="wns_email_text_color" id="text-color" value="<?php echo esc_attr(get_option('wns_email_text_color', '#333333')); ?>" class="wns-form-input" />
                                     <div class="wns-form-help"><?php wns_te('text_color_help'); ?></div>
-                                </div>
-                                
-                                <div class="wns-form-row">
-                                    <label class="wns-form-label"><?php wns_te('background_color_label'); ?></label>
-                                    <input type="color" name="wns_email_background_color" id="background-color" value="<?php echo esc_attr(get_option('wns_email_background_color', '#f9f9f9')); ?>" class="wns-form-input" />
-                                    <div class="wns-form-help"><?php wns_te('background_color_help'); ?></div>
                                 </div>
                                 
                                 <div class="wns-form-row">
@@ -3056,7 +3240,6 @@ ${footerHTML}
                         accentColor: document.getElementById('accent-color'),
                         textColor: document.getElementById('text-color'),
                         textColor: document.getElementById('text-color'),
-                        backgroundColor: document.getElementById('background-color'),
                         cardBgColor: document.getElementById('card-bg-color'),
                         cardBorderColor: document.getElementById('card-border-color'),
                         contentPadding: document.getElementById('content-padding'),
@@ -3115,8 +3298,6 @@ ${footerHTML}
                             headerTextSize: inputs.headerTextSize.value,
                             accentColor: inputs.accentColor.value,
                             textColor: inputs.textColor.value,
-                            textColor: inputs.textColor.value,
-                            backgroundColor: inputs.backgroundColor.value,
                             cardBgColor: inputs.cardBgColor.value,
                             cardBorderColor: inputs.cardBorderColor.value,
                             contentPadding: inputs.contentPadding.value,
@@ -3142,22 +3323,55 @@ ${footerHTML}
                         var introContent = values.introText.replace('{count}', '4');
                         
                         var footerHTML = values.footerText 
-                            ? '<div class="email-footer">' + values.footerText.replace(/\n/g, '<br>') + '</div>'
+                            ? '<div class="wns-email-footer">' + values.footerText.replace(/\n/g, '<br>') + '</div>'
                             : '';
                         
-                        return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-body {background: ${values.backgroundColor}; font-family: ${values.fontFamily}; margin:0; padding:${values.contentPadding}px; color: ${values.textColor}; line-height: ${values.lineHeight};}
-.content {color: ${values.textColor}; background:#fff; padding: 0; margin: 0 auto; border-radius: ${values.cardRadius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid ${values.headerColor};}
-.email-header {background: ${values.headerColor}; color: #fff; text-align: center; padding: ${values.contentPadding}px;}
-.email-header h1 {margin: 0 !important; padding: 0; border: none;}
-h1 {color: ${values.textColor}; border-bottom:2px solid ${values.cardBorderColor}; padding-bottom:0.2em; font-size:1.7em; margin-bottom:1em;}
-.section-title {color: ${values.textColor}; font-size:1.45em; margin-top:1.5em; margin-bottom:0.8em; font-weight:700; margin-left: ${values.contentPadding}px;}
-.intro {font-size: 1.25em; margin: 1.5em ${values.contentPadding}px 1.2em; color: ${values.textColor};}
-.card {
+                        // Generate dynamic CSS based on current form values
+                        var dynamicCSS = `
+/* Email body wrapper - ONLY targets actual body tags in emails/iframes */
+body.wns-email-body {
+    font-family: ${values.fontFamily};
+    margin: 0;
+    padding: ${values.contentPadding}px;
+    color: ${values.textColor};
+    line-height: ${values.lineHeight};
+}
+.wns-email-content {
+    color: ${values.textColor};
+    background: #fff;
+    padding: 0;
+    margin: 0 auto;
+    border-radius: ${values.cardRadius}px;
+    overflow: hidden;
+    max-width: 700px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    border: 1px solid ${values.headerColor};
+}
+.wns-email-header {
+    background: ${values.headerColor};
+    color: #fff;
+    text-align: center;
+    padding: ${values.contentPadding}px;
+}
+.wns-email-header h1 {
+    margin: 0 !important;
+    padding: 0;
+    border: none;
+}
+.wns-section-title {
+    color: ${values.textColor};
+    font-size: 1.45em;
+    margin-top: 1.5em;
+    margin-bottom: 0.8em;
+    font-weight: 700;
+    margin-left: ${values.contentPadding}px;
+}
+.wns-intro {
+    font-size: 1.25em;
+    margin: 1.5em ${values.contentPadding}px 1.2em;
+    color: ${values.textColor};
+}
+.wns-card {
     background: ${values.cardBgColor};
     border: 1px solid ${values.cardBorderColor};
     border-radius: ${values.cardRadius}px;
@@ -3165,18 +3379,18 @@ h1 {color: ${values.textColor}; border-bottom:2px solid ${values.cardBorderColor
     padding: ${values.contentPadding}px;
     box-sizing: border-box;
 }
-.wp-posts, .forum-section {
+.wns-wp-posts, .wns-forum-section {
     margin-bottom: 2em;
     padding: 0 ${values.contentPadding}px;
 }
-.forum-header, .thread-header {
+.wns-forum-header, .wns-thread-header {
     display: flex;
     align-items: center;
     margin-top: 1.2em;
     margin-bottom: 0.7em;
     margin-left: ${values.contentPadding}px;
 }
-.category-label {
+.wns-category-label {
     color: #fff;
     background: ${values.headerColor};
     display: inline-block;
@@ -3186,12 +3400,12 @@ h1 {color: ${values.textColor}; border-bottom:2px solid ${values.cardBorderColor
     font-weight: 600;
     margin-right: 0.6em;
 }
-.forum-name {
+.wns-forum-name {
     font-size: 1.10em;
     font-weight: bold;
     color: ${values.textColor};
 }
-.topic-label {
+.wns-topic-label {
     color: #fff;
     background: ${values.accentColor};
     display: inline-block;
@@ -3201,42 +3415,45 @@ h1 {color: ${values.textColor}; border-bottom:2px solid ${values.cardBorderColor
     font-weight: 600;
     margin-right: 0.6em;
 }
-.thread-name {
+.wns-thread-name {
     font-size: 1.02em;
     font-weight: bold;
     color: ${values.textColor};
 }
-.post-title {
+.wns-post-title {
     font-size: 1.02em;
-    font-weight: 600;
+    font-weight: 700 !important;
     color: ${values.textColor};
     margin-bottom: 0.15em;
 }
-.post-title a {
-    color: ${values.textColor} !important;
-    text-decoration: none !important;
-    display: block;
-    font-weight: inherit;
-    font-size: inherit;
-}
-.post-title a:hover {
-    color: ${values.accentColor} !important;
-    text-decoration: none !important;
-}
-.post-meta {
-    color: ${values.metaColor};
-    font-weight: 600;
+.wns-post-meta {
+    color: ${values.textColor};
     font-size: 0.95em;
     margin-bottom: 0.3em;
 }
-.post-excerpt {
+/* For forum posts we want author/date to use the title style so it stands out */
+.wns-forum-post .wns-post-meta {
+    color: ${values.textColor};
+    font-size: 1.02em;
+    font-weight: 600;
+    margin-bottom: 0.3em;
+}
+/* Reply label - subtle gray to avoid distracting from content */
+.wns-reply-label {
+    color: #777777;
+    font-size: 0.95em;
+    font-weight: 600;
+    margin-bottom: 0.15em;
+    display: inline-block;
+}
+.wns-post-excerpt {
     color: ${values.textColor};
     font-size: 1em;
     margin-bottom: 0.7em;
     margin-top: 0.1em;
     line-height: ${values.lineHeight};
 }
-.forum-quote {
+.wns-forum-quote {
     border-left: 3px solid ${values.accentColor};
     background: #fffbe7;
     color: #444;
@@ -3246,16 +3463,16 @@ h1 {color: ${values.textColor}; border-bottom:2px solid ${values.cardBorderColor
     font-size: 0.97em;
     border-radius: 5px;
 }
-.post-readmore {
+.wns-post-readmore {
     margin-top: 0.3em;
 }
-.post-readmore a {
+.wns-post-readmore a {
     color: ${values.accentColor};
     font-size: 0.98em;
     text-decoration: underline;
     font-weight: 600;
 }
-.email-footer {
+.wns-email-footer {
     background: #f5f5f5;
     color: #666;
     padding: 15px ${values.contentPadding}px;
@@ -3264,45 +3481,57 @@ h1 {color: ${values.textColor}; border-bottom:2px solid ${values.cardBorderColor
     border-top: 1px solid #e0e0e0;
     margin-top: 20px;
 }
-@media (max-width: 600px) { .content {margin: 1em;} }
+@media (max-width: 600px) { 
+    .wns-email-content {margin: 1em;} 
+    body.wns-email-body {padding: 10px;}
+}
+`;
+                        
+                        return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+${dynamicCSS}
 </style>
 </head>
-<body>
-<div class='content'>
-<div class='email-header'>${headerContent}</div>
-<div class='intro'><strong>${introContent}</strong></div>
-<section class="wp-posts">
-<h2 class="section-title"><?php echo esc_js(wns_t('latest_articles_website')); ?></h2>
-<div class="forum-header"><span class="category-label">Technology</span></div>
-<div class='card post-card'>
-<div class='post-title'><a href='#'>New Features in WordPress 6.5</a></div>
-<div class='post-meta'>Sep 12, 2025</div>
-<div class='post-excerpt'>WordPress 6.5 brings a wealth of new features and improvements that will simplify managing your websites. Among the most significant updates are an enhanced block editor, new customization options, and better performance optimizations...</div>
-<div class='post-readmore'><a href='#'><?php echo esc_js(wns_t('read_more_website')); ?></a></div>
+<body class='wns-email-body' style='font-family: ${values.fontFamily}; margin:0; padding:${values.contentPadding}px; color: ${values.textColor}; line-height: ${values.lineHeight};'>
+<div class='wns-email-content' style='color: ${values.textColor}; background:#fff; padding: 0; margin: 0 auto; border-radius: ${values.cardRadius}px; overflow: hidden; max-width: 700px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); border: 1px solid ${values.headerColor};'>
+<div class='wns-email-header'>${headerContent}</div>
+<div class='wns-intro'><strong>${introContent}</strong></div>
+<section class="wns-wp-posts">
+<h2 class="wns-section-title"><?php echo esc_js(wns_t('latest_articles_website')); ?></h2>
+<div class="wns-forum-header"><span class="wns-category-label">Technology</span></div>
+<div class='wns-card wns-post-card'>
+<div class='wns-post-title'><a href='#'>New Features in WordPress 6.5</a></div>
+<div class='wns-post-meta'>Sep 12, 2025</div>
+<div class='wns-post-excerpt'>WordPress 6.5 brings a wealth of new features and improvements that will simplify managing your websites. Among the most significant updates are an enhanced block editor, new customization options, and better performance optimizations...</div>
+<div class='wns-post-readmore'><a href='#'><?php echo esc_js(wns_t('read_more_website')); ?></a></div>
 </div>
-<div class="forum-header"><span class="category-label">Marketing</span></div>
-<div class='card post-card'>
-<div class='post-title'><a href='#'>SEO Optimization Tips for 2025</a></div>
-<div class='post-meta'>Sep 13, 2025</div>
-<div class='post-excerpt'>SEO continues to evolve, and for 2025 the key trends include AI-optimized content, technical SEO, and user experience. Focus on quality content, loading speed, and mobile optimization for the best results...</div>
-<div class='post-readmore'><a href='#'><?php echo esc_js(wns_t('read_more_website')); ?></a></div>
+<div class="wns-forum-header"><span class="wns-category-label">Marketing</span></div>
+<div class='wns-card wns-post-card'>
+<div class='wns-post-title'><a href='#'>SEO Optimization Tips for 2025</a></div>
+<div class='wns-post-meta'>Sep 13, 2025</div>
+<div class='wns-post-excerpt'>SEO continues to evolve, and for 2025 the key trends include AI-optimized content, technical SEO, and user experience. Focus on quality content, loading speed, and mobile optimization for the best results...</div>
+<div class='wns-post-readmore'><a href='#'><?php echo esc_js(wns_t('read_more_website')); ?></a></div>
 </div>
 </section>
-<section class="forum-section">
-<h2 class="section-title"><?php echo esc_js(wns_t('latest_forum_posts')); ?></h2>
-<div class="forum-header"><span class="category-label"><?php echo esc_js(wns_t('forum')); ?></span><span class="forum-name">General Discussion</span></div>
-<div class="thread-header"><span class="topic-label"><?php echo esc_js(wns_t('topic')); ?></span><span class="thread-name">Beginner Questions</span></div>
-<div class='card forum-post'>
-<div class='post-meta'>John Smith &middot; Sep 14, 2025 08:30</div>
-<div class='post-excerpt'>Hello everyone! I'm a complete beginner in programming and would like to learn. Can you recommend which programming language would be best to start with? I'm thinking between Python and JavaScript...</div>
-<div class='post-readmore'><a href='#'><?php echo esc_js(wns_t('continue_reading_forum')); ?></a></div>
+<section class="wns-forum-section">
+<h2 class="wns-section-title"><?php echo esc_js(wns_t('latest_forum_posts')); ?></h2>
+<div class="wns-forum-header"><span class="wns-category-label"><?php echo esc_js(wns_t('forum')); ?></span><span class="wns-forum-name">General Discussion</span></div>
+<div class="wns-thread-header"><span class="wns-topic-label"><?php echo esc_js(wns_t('topic')); ?></span><span class="wns-thread-name">Beginner Questions</span></div>
+<div class='wns-card wns-forum-post'>
+<div class='wns-post-meta'>John Smith &middot; Sep 14, 2025 08:30</div>
+<div class='wns-post-excerpt'>Hello everyone! I'm a complete beginner in programming and would like to learn. Can you recommend which programming language would be best to start with? I'm thinking between Python and JavaScript...</div>
+<div class='wns-post-readmore'><a href='#'><?php echo esc_js(wns_t('continue_reading_forum')); ?></a></div>
 </div>
-<div class="forum-header"><span class="category-label"><?php echo esc_js(wns_t('forum')); ?></span><span class="forum-name">Web Design</span></div>
-<div class="thread-header"><span class="topic-label"><?php echo esc_js(wns_t('topic')); ?></span><span class="thread-name">CSS Grid vs Flexbox</span></div>
-<div class='card forum-post'>
-<div class='post-meta'>Sarah Johnson &middot; Sep 14, 2025 06:30</div>
-<div class='post-excerpt'>I often encounter the question of when it's better to use CSS Grid versus Flexbox. Can someone explain the main differences and practical applications? <div class="forum-quote">Grid is excellent for two-dimensional layouts, while Flexbox is ideal for one-dimensional ones.</div></div>
-<div class='post-readmore'><a href='#'>Continue reading on forum...</a></div>
+<div class="wns-forum-header"><span class="wns-category-label"><?php echo esc_js(wns_t('forum')); ?></span><span class="wns-forum-name">Web Design</span></div>
+<div class="wns-thread-header"><span class="wns-topic-label"><?php echo esc_js(wns_t('topic')); ?></span><span class="wns-thread-name">CSS Grid vs Flexbox</span></div>
+<div class='wns-card wns-forum-post'>
+<div class='wns-post-meta'>Sarah Johnson &middot; Sep 14, 2025 06:30</div>
+<div class='wns-post-excerpt'>I often encounter the question of when it's better to use CSS Grid versus Flexbox. Can someone explain the main differences and practical applications? <div class="wns-forum-quote">Grid is excellent for two-dimensional layouts, while Flexbox is ideal for one-dimensional ones.</div></div>
+<div class='wns-post-readmore'><a href='#'>Continue reading on forum...</a></div>
 </div>
 </section>
 ${footerHTML}
@@ -3634,7 +3863,22 @@ ${footerHTML}
                                     </div>
                                 </div>
                                 <div class="wns-preview-email-content">
-                                    <?php echo $email_content; ?>
+                                    <script>
+                                    (function() {
+                                        var iframe = document.createElement('iframe');
+                                        iframe.style.width = '100%';
+                                        iframe.style.border = 'none';
+                                        iframe.style.display = 'block';
+                                        document.currentScript.parentElement.appendChild(iframe);
+                                        var emailHTML = <?php echo json_encode($email_content); ?>;
+                                        iframe.contentDocument.open();
+                                        iframe.contentDocument.write(emailHTML);
+                                        iframe.contentDocument.close();
+                                        setTimeout(function() {
+                                            iframe.style.height = iframe.contentDocument.body.scrollHeight + 'px';
+                                        }, 100);
+                                    })();
+                                    </script>
                                 </div>
                                 
                                 <?php
@@ -3668,7 +3912,12 @@ ${footerHTML}
                     border-radius: 6px;
                     background: #fff;
                     overflow: hidden;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                }
+                .wns-email-preview-content iframe {
+                    width: 100%;
+                    border: none;
+                    display: block;
+                    min-height: 600px;
                 }
                 .wns-preview-loading {
                     text-align: center;
@@ -3711,9 +3960,9 @@ ${footerHTML}
                     font-size: 14px;
                 }
                 .wns-preview-email-content {
-                    max-height: 600px;
-                    overflow-y: auto;
-                    padding: 30px 20px;
+                    max-height: none;
+                    overflow: visible;
+                    padding: 0;
                 }
                 .wns-preview-error {
                     background: #f8d7da;

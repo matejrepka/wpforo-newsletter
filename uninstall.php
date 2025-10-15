@@ -121,34 +121,8 @@ function wns_cleanup_transients() {
     }
 }
 
-/**
- * Clean up user meta data (optional)
- */
-function wns_cleanup_user_meta() {
-    global $wpdb;
-    
-    // Only uncomment if you want to remove user preferences
-    /*
-    $wpdb->query("DELETE FROM {$wpdb->usermeta} WHERE meta_key LIKE 'wns_%'");
-    */
-}
 
-/**
- * Clean up any custom database tables (if any were created)
- */
-function wns_cleanup_custom_tables() {
-    global $wpdb;
-    
-    // This plugin doesn't create custom tables, but if it did:
-    /*
-    $table_name = $wpdb->prefix . 'wns_newsletters';
-    $wpdb->query("DROP TABLE IF EXISTS {$table_name}");
-    */
-}
 
-/**
- * Main cleanup function
- */
 function wns_uninstall_cleanup() {
     // Log the uninstall process
     if (defined('WP_DEBUG') && WP_DEBUG) {
@@ -159,8 +133,6 @@ function wns_uninstall_cleanup() {
     wns_cleanup_options();
     wns_cleanup_cron();
     wns_cleanup_transients();
-    wns_cleanup_user_meta();
-    wns_cleanup_custom_tables();
     
     // Final cleanup - remove any uploaded files if applicable
     $upload_dir = wp_upload_dir();
