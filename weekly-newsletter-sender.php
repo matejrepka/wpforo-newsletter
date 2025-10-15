@@ -3980,7 +3980,7 @@ ${footerHTML}
                 .wns-preview-email-content {
                     max-height: none;
                     overflow: visible;
-                    padding: 0;
+                    padding: 0 80px;
                 }
                 .wns-preview-error {
                     background: #f8d7da;
@@ -3989,6 +3989,23 @@ ${footerHTML}
                     border-left: 4px solid #dc3545;
                     border-radius: 6px;
                     margin-bottom: 20px;
+                }
+                
+                @media (max-width: 800px) {
+                    #wns-email-preview-content {
+                        margin-left: -20px;
+                        margin-right: -20px;
+                    }
+                    .wns-preview-meta {
+                        padding: 20px 20px;
+                    }
+                    .wns-preview-meta > div {
+                        grid-template-columns: 1fr;
+                        gap: 15px;
+                    }
+                    .wns-preview-email-content {
+                        padding: 0 20px;
+                    }
                 }
                 </style>
                 
