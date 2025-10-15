@@ -271,8 +271,31 @@ return [
     'newsletter_sent_manually' => 'Newsletter sent manually!',
     'settings_saved' => 'Settings saved successfully!',
     'test_email_sent_success' => 'Test email sent successfully!',
-    'test_email_send_failed' => 'Test email failed to send. Please check your configuration.'
-    ,
+    'test_email_send_failed' => 'Test email failed to send. Please check your configuration.',
+    
     // Reply label for forum replies
     'reply_label' => 'Reply',
+    
+    // Cron-job.org integration
+    'cronjob_integration' => 'Cron-job.org Integration',
+    'cronjob_info_title' => 'External Cron Trigger',
+    'cronjob_info_message' => 'This integration automatically creates a cron job on cron-job.org to trigger your WordPress cron at the scheduled time. This ensures reliable newsletter delivery even if your site has low traffic.',
+    'cronjob_schedule_info' => 'The cron job will visit your site\'s wp-cron.php URL 5 minutes after your scheduled send time to ensure proper execution.',
+    'cronjob_get_api_key' => 'Get your API key from:',
+    'cronjob_console_link' => 'cron-job.org console',
+    'enable_cronjob_integration' => 'Enable cron-job.org Integration',
+    'cronjob_enable_help' => 'Automatically manage external cron jobs based on your newsletter schedule.',
+    'cronjob_security_message' => 'Your API key is encrypted using WordPress security salts and stored securely in your database. It is never displayed in plain text.',
+    'cronjob_api_key_encrypted' => 'The API key field shows masked characters for security. To update, simply paste a new key and save.',
+    'cronjob_api_key' => 'Cron-job.org API Key',
+    'cronjob_api_key_placeholder' => 'Enter your cron-job.org API key',
+    'cronjob_api_key_help' => 'Your API key is stored encrypted and will be used to manage cron jobs automatically.',
+    'cronjob_status' => 'Cron Job Status',
+    'cronjob_active' => 'Cron job is active',
+    'cronjob_id_label' => 'Job ID',
+    'cronjob_schedule_label' => 'Trigger Schedule',
+    'cronjob_trigger_time' => 'Trigger time',
+    'cronjob_5min_buffer' => '(5 minutes after scheduled send time)',
+    'test_cronjob_connection' => 'Test API Connection',
+    'sync_cronjob_now' => 'Sync Cron Job Now',
 ];

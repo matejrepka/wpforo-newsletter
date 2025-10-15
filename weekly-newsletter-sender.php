@@ -40,6 +40,10 @@ function wns_load_translations($language = 'en') {
     $language_file = dirname(WNS_PLUGIN_FILE) . '/languages/' . $language . '.php';
     
     if (file_exists($language_file)) {
+        // Force fresh include (clear opcode cache if enabled)
+        if (function_exists('opcache_invalidate')) {
+            opcache_invalidate($language_file, true);
+        }
         $wns_translations = include $language_file;
         
         // Debug logging
@@ -433,6 +437,269 @@ function wns_decrypt_password($encrypted_password) {
         return '';
     }
 }
+
+// --- CRON-JOB.ORG API INTEGRATION ---
+
+/**
+ * Sanitize and encrypt cron-job.org API key before saving
+ */
+function wns_sanitize_cronjob_api_key($api_key) {
+    if (empty($api_key)) {
+        return '';
+    }
+    
+    // Get current stored API key
+    $current_key = get_option('wns_cronjob_api_key', '');
+    
+    // If the submitted key is the masked version, keep the current encrypted key
+    if ($api_key === '••••••••••••••••••••••••••••••••' && !empty($current_key)) {
+        return $current_key;
+    }
+    
+    // If it's a new API key, encrypt it
+    return wns_encrypt_password($api_key);
+}
+
+/**
+ * Make API call to cron-job.org
+ */
+function wns_cronjob_api_call($endpoint, $method = 'GET', $data = null) {
+    $api_key_encrypted = get_option('wns_cronjob_api_key', '');
+    
+    if (empty($api_key_encrypted)) {
+        return ['success' => false, 'error' => 'API key not configured'];
+    }
+    
+    $api_key = wns_decrypt_password($api_key_encrypted);
+    
+    if (empty($api_key)) {
+        return ['success' => false, 'error' => 'Failed to decrypt API key'];
+    }
+    
+    $url = 'https://api.cron-job.org/jobs' . $endpoint;
+    
+    $args = [
+        'method' => $method,
+        'headers' => [
+            'Authorization' => 'Bearer ' . $api_key,
+            'Content-Type' => 'application/json',
+        ],
+        'timeout' => 30,
+    ];
+    
+    if ($data !== null) {
+        $args['body'] = json_encode($data);
+    }
+    
+    $response = wp_remote_request($url, $args);
+    
+    if (is_wp_error($response)) {
+        error_log('[WNS Cron-job.org] API call error: ' . $response->get_error_message());
+        return ['success' => false, 'error' => $response->get_error_message()];
+    }
+    
+    $status_code = wp_remote_retrieve_response_code($response);
+    $body = wp_remote_retrieve_body($response);
+    $decoded = json_decode($body, true);
+    
+    if ($status_code >= 200 && $status_code < 300) {
+        return ['success' => true, 'data' => $decoded];
+    } else {
+        $error_message = isset($decoded['error']) ? $decoded['error']['message'] : 'Unknown error';
+        error_log('[WNS Cron-job.org] API error (status ' . $status_code . '): ' . $error_message);
+        return ['success' => false, 'error' => $error_message, 'status' => $status_code];
+    }
+}
+
+/**
+ * Calculate cron expression for the scheduled send time + 5 minutes
+ */
+function wns_get_cronjob_schedule() {
+    $send_day = get_option('wns_send_day', 'monday');
+    $send_time = get_option('wns_send_time', '08:00');
+    $timezone = wp_timezone();
+    
+    try {
+        // Map day names to day numbers (cron-job.org API format: 0=Sunday, 1=Monday, 6=Saturday)
+        $day_map = [
+            'sunday' => 0,
+            'monday' => 1,
+            'tuesday' => 2,
+            'wednesday' => 3,
+            'thursday' => 4,
+            'friday' => 5,
+            'saturday' => 6
+        ];
+        
+        // Get the day number for the selected day
+        $day_of_week = isset($day_map[strtolower($send_day)]) ? $day_map[strtolower($send_day)] : 1;
+        
+        // Calculate time in site timezone
+        $target = new DateTime('this ' . $send_day, $timezone);
+        $time_parts = explode(':', $send_time);
+        $target->setTime((int)$time_parts[0], (int)$time_parts[1]);
+        
+        // Add 5 minutes buffer
+        $target->modify('+5 minutes');
+        
+        // Store the local time for display
+        $local_time = $target->format('H:i');
+        $local_day = $target->format('l');
+        
+        // Convert to UTC for cron-job.org
+        $target->setTimezone(new DateTimeZone('UTC'));
+        
+        // Get hour and minute in UTC
+        $hour = $target->format('H');
+        $minute = $target->format('i');
+        
+        // Check if day changed after UTC conversion
+        $utc_day_numeric = (int)$target->format('w'); // 0=Sunday, 1=Monday, 6=Saturday
+        if ($utc_day_numeric !== $day_of_week) {
+            // Day shifted during timezone conversion
+            // We need to adjust the schedule to trigger on the correct day in UTC
+            error_log("[WNS Cron-job.org] Day shifted from $day_of_week (" . ucfirst($send_day) . ") to $utc_day_numeric after UTC conversion");
+            // Use the UTC day to ensure it triggers at the right moment
+            $day_of_week = $utc_day_numeric;
+        }
+        
+        // Build cron expression: minute hour * * day_of_week
+        // Format: "minute hour * * day"
+        $cron_expression = "$minute $hour * * $day_of_week";
+        
+        return [
+            'success' => true,
+            'schedule' => $cron_expression,
+            'time' => $local_time,  // Display local time
+            'time_utc' => $target->format('H:i'),  // UTC time for API
+            'day' => $day_of_week,  // Day number for cron-job.org (0=Sunday, 1=Monday, 6=Saturday)
+            'day_name' => $local_day  // Local day name for display
+        ];
+    } catch (Exception $e) {
+        error_log('[WNS Cron-job.org] Schedule calculation error: ' . $e->getMessage());
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
+/**
+ * Create or update cron job on cron-job.org
+ */
+function wns_sync_cronjob() {
+    if (!get_option('wns_cronjob_enabled', 0)) {
+        return ['success' => true, 'message' => 'Cron-job.org integration disabled'];
+    }
+    
+    $schedule = wns_get_cronjob_schedule();
+    if (!$schedule['success']) {
+        return $schedule;
+    }
+    
+    // Get stored job ID
+    $job_id = get_option('wns_cronjob_id', '');
+    
+    // Build the wp-cron.php URL
+    $site_url = get_site_url();
+    $cron_url = trailingslashit($site_url) . 'wp-cron.php?doing_wp_cron';
+    
+    // Parse the UTC time to get hour and minute
+    list($hour, $minute) = explode(':', $schedule['time_utc']);
+    $day_of_week = (int)$schedule['day'];
+    
+    // Day is already in correct format (1-7) from wns_get_cronjob_schedule()
+    
+    $job_data = [
+        'job' => [
+            'enabled' => true,
+            'title' => 'WordPress Newsletter Cron - ' . get_bloginfo('name'),
+            'url' => $cron_url,
+            'schedule' => [
+                'timezone' => 'UTC',
+                'expiresAt' => 0,
+                'hours' => [(int)$hour],
+                'mdays' => [-1],
+                'minutes' => [(int)$minute],
+                'months' => [-1],
+                'wdays' => [$day_of_week],
+            ],
+            'requestMethod' => 1, // GET
+            'extendedData' => [
+                'headers' => [],
+                'body' => ''
+            ],
+            'requestTimeout' => 30
+        ]
+    ];
+    
+    // If job exists, update it
+    if (!empty($job_id)) {
+        $result = wns_cronjob_api_call('/' . $job_id, 'PATCH', $job_data);
+        
+        if ($result['success']) {
+            return ['success' => true, 'message' => 'Cron job updated successfully', 'job_id' => $job_id];
+        } else {
+            // If update fails, try to delete and recreate
+            wns_delete_cronjob();
+            $job_id = '';
+        }
+    }
+    
+    // Create new job
+    if (empty($job_id)) {
+        $result = wns_cronjob_api_call('', 'PUT', $job_data);
+        
+        if ($result['success'] && isset($result['data']['jobId'])) {
+            $new_job_id = $result['data']['jobId'];
+            update_option('wns_cronjob_id', $new_job_id);
+            return ['success' => true, 'message' => 'Cron job created successfully', 'job_id' => $new_job_id];
+        } else {
+            return ['success' => false, 'error' => isset($result['error']) ? $result['error'] : 'Failed to create cron job'];
+        }
+    }
+}
+
+/**
+ * Delete cron job from cron-job.org
+ */
+function wns_delete_cronjob() {
+    $job_id = get_option('wns_cronjob_id', '');
+    
+    if (empty($job_id)) {
+        return ['success' => true, 'message' => 'No cron job to delete'];
+    }
+    
+    $result = wns_cronjob_api_call('/' . $job_id, 'DELETE');
+    
+    if ($result['success']) {
+        delete_option('wns_cronjob_id');
+        return ['success' => true, 'message' => 'Cron job deleted successfully'];
+    } else {
+        return $result;
+    }
+}
+
+/**
+ * Test cron-job.org API connection
+ */
+function wns_test_cronjob_connection() {
+    $result = wns_cronjob_api_call('', 'GET');
+    
+    if ($result['success']) {
+        return ['success' => true, 'message' => 'API connection successful'];
+    } else {
+        return $result;
+    }
+}
+
+// Hook to sync cron job when settings change
+add_action('update_option_wns_send_day', 'wns_sync_cronjob');
+add_action('update_option_wns_send_time', 'wns_sync_cronjob');
+add_action('update_option_wns_cronjob_enabled', function($old_value, $new_value) {
+    if ($new_value) {
+        wns_sync_cronjob();
+    } else {
+        wns_delete_cronjob();
+    }
+}, 10, 2);
 
 // --- DATA FETCHING ---
 function wns_get_wpforo_summary($date_from = null, $date_to = null) {
@@ -1611,6 +1878,11 @@ function wns_register_settings() {
     add_option('wns_smtp_password', '');
     add_option('wns_smtp_encryption', 'tls'); // tls, ssl, or none
     
+    // Cron-job.org integration options
+    add_option('wns_cronjob_enabled', 0); // Enable/disable cron-job.org integration
+    add_option('wns_cronjob_api_key', ''); // Encrypted API key
+    add_option('wns_cronjob_id', ''); // Stored job ID
+    
     register_setting('wns_options_group', 'wns_subject');
     register_setting('wns_options_group', 'wns_roles'); // <-- Make editable
     register_setting('wns_options_group', 'wns_enabled');
@@ -1652,6 +1924,12 @@ function wns_register_settings() {
         'sanitize_callback' => 'wns_sanitize_smtp_password'
     ]);
     register_setting('wns_mail_group', 'wns_smtp_encryption');
+    
+    // Cron-job.org integration settings - separate group
+    register_setting('wns_cronjob_group', 'wns_cronjob_enabled');
+    register_setting('wns_cronjob_group', 'wns_cronjob_api_key', [
+        'sanitize_callback' => 'wns_sanitize_cronjob_api_key'
+    ]);
 }
 
 // Sanitize and encrypt SMTP password before saving
@@ -1681,9 +1959,15 @@ function wns_set_newsletter_from_name($name) {
 function wns_settings_page() {
     // Force fresh translation loading for admin context
     global $wns_translations;
-    $wns_translations = null; // Clear any cached translations
+    $wns_translations = []; // Clear any cached translations
     $language = get_option('wns_language', 'en');
     wns_load_translations($language);
+    
+    // Debug: Check if cron translations loaded
+    if (defined('WP_DEBUG') && WP_DEBUG && isset($wns_translations)) {
+        error_log('[WNS] Configuration tab - Translations loaded: ' . count($wns_translations));
+        error_log('[WNS] Sample check - cronjob_integration: ' . (isset($wns_translations['cronjob_integration']) ? 'EXISTS' : 'MISSING'));
+    }
     
     $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'settings';
     
@@ -3661,6 +3945,127 @@ ${footerHTML}
                     </form>
                 </div>
                 
+                <div class="wns-divider"></div>
+                
+                <div class="wns-section">
+                    <div class="wns-section-title"><?php wns_te('cronjob_integration'); ?></div>
+                    
+                    <!-- Info Notice -->
+                    <div style="background: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 4px; padding: 16px; margin-bottom: 24px;">
+                        <h4 style="margin: 0 0 8px 0; color: #0066cc;">
+                            <span class="dashicons dashicons-info" style="vertical-align: middle;"></span>
+                            <?php wns_te('cronjob_info_title'); ?>
+                        </h4>
+                        <p style="margin: 0 0 12px 0; color: #0066cc; font-size: 14px;">
+                            <?php wns_te('cronjob_info_message'); ?>
+                        </p>
+                        <p style="margin: 0 0 12px 0; color: #0066cc; font-size: 14px;">
+                            <?php wns_te('cronjob_schedule_info'); ?>
+                        </p>
+                        <p style="margin: 0; color: #0066cc; font-size: 14px;">
+                            <strong><?php wns_te('cronjob_get_api_key'); ?></strong>
+                            <a href="https://console.cron-job.org/" target="_blank" style="color: #0066cc; text-decoration: underline;">
+                                <?php wns_te('cronjob_console_link'); ?>
+                            </a>
+                        </p>
+                    </div>
+                    
+                    <form method="post" action="options.php">
+                        <?php 
+                        settings_fields('wns_cronjob_group');
+                        $cronjob_enabled = get_option('wns_cronjob_enabled', 0);
+                        $cronjob_api_key_encrypted = get_option('wns_cronjob_api_key', '');
+                        $cronjob_api_key_display = !empty($cronjob_api_key_encrypted) ? '••••••••••••••••••••••••••••••••' : '';
+                        $cronjob_id = get_option('wns_cronjob_id', '');
+                        ?>
+                        
+                        <div class="wns-form-row">
+                            <label class="wns-checkbox-label" style="display: flex; align-items: center;">
+                                <input type="checkbox" name="wns_cronjob_enabled" value="1" 
+                                       class="wns-checkbox-input" <?php checked($cronjob_enabled, 1); ?> 
+                                       style="margin-right: 8px;" />
+                                <span><?php wns_te('enable_cronjob_integration'); ?></span>
+                            </label>
+                            <div class="wns-form-help"><?php wns_te('cronjob_enable_help'); ?></div>
+                        </div>
+                        
+                        <div id="wns-cronjob-config" style="<?php if(!$cronjob_enabled) echo 'display:none;'; ?>">
+                            <div class="wns-divider" style="margin: 24px 0;"></div>
+                            
+                            <!-- Security Notice -->
+                            <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 16px; margin-bottom: 24px;">
+                                <h4 style="margin: 0 0 8px 0; color: #856404;">
+                                    <span class="dashicons dashicons-lock" style="vertical-align: middle;"></span>
+                                    <?php wns_te('security_notice'); ?>
+                                </h4>
+                                <p style="margin: 0 0 12px 0; color: #856404; font-size: 14px;">
+                                    <?php wns_te('cronjob_security_message'); ?>
+                                </p>
+                                <p style="margin: 0; color: #856404; font-size: 14px;">
+                                    <?php wns_te('cronjob_api_key_encrypted'); ?>
+                                </p>
+                            </div>
+                            
+                            <div class="wns-form-row">
+                                <label class="wns-form-label"><?php wns_te('cronjob_api_key'); ?></label>
+                                <input type="password" name="wns_cronjob_api_key" 
+                                       value="<?php echo esc_attr($cronjob_api_key_display); ?>" 
+                                       class="wns-form-input" 
+                                       placeholder="<?php echo esc_attr(wns_t('cronjob_api_key_placeholder')); ?>" 
+                                       autocomplete="off" />
+                                <div class="wns-form-help"><?php wns_te('cronjob_api_key_help'); ?></div>
+                            </div>
+                            
+                            <?php if (!empty($cronjob_id)): ?>
+                            <div class="wns-form-row">
+                                <label class="wns-form-label"><?php wns_te('cronjob_status'); ?></label>
+                                <div style="padding: 12px; background: #e7f7e7; border: 1px solid #4caf50; border-radius: 4px;">
+                                    <span class="dashicons dashicons-yes-alt" style="color: #4caf50; vertical-align: middle;"></span>
+                                    <strong style="color: #2e7d32;"><?php wns_te('cronjob_active'); ?></strong>
+                                    <p style="margin: 8px 0 0 0; font-size: 13px; color: #2e7d32;">
+                                        <?php wns_te('cronjob_id_label'); ?>: <code style="background: #fff; padding: 2px 6px; border-radius: 3px;"><?php echo esc_html($cronjob_id); ?></code>
+                                    </p>
+                                </div>
+                            </div>
+                            <?php endif; ?>
+                            
+                            <?php
+                            // Calculate and display the schedule
+                            $schedule_info = wns_get_cronjob_schedule();
+                            if ($schedule_info['success']): 
+                            ?>
+                            <div class="wns-form-row">
+                                <label class="wns-form-label"><?php wns_te('cronjob_schedule_label'); ?></label>
+                                <div style="padding: 12px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px;">
+                                    <p style="margin: 0; font-size: 14px;">
+                                        <strong><?php wns_te('cronjob_trigger_time'); ?>:</strong> 
+                                        <?php echo esc_html($schedule_info['time']); ?> 
+                                        (<?php echo esc_html(ucfirst(get_option('wns_send_day', 'monday'))); ?>)
+                                    </p>
+                                    <p style="margin: 8px 0 0 0; font-size: 13px; color: #666;">
+                                        <?php wns_te('cronjob_5min_buffer'); ?>
+                                    </p>
+                                </div>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <?php submit_button(wns_t('save_configuration'), 'primary large wns-button'); ?>
+                    </form>
+                    
+                    <?php if ($cronjob_enabled && !empty($cronjob_api_key_encrypted)): ?>
+                    <div style="margin-top: 20px;">
+                        <button type="button" id="wns-test-cronjob" class="button button-secondary">
+                            <?php wns_te('test_cronjob_connection'); ?>
+                        </button>
+                        <button type="button" id="wns-sync-cronjob" class="button button-secondary" style="margin-left: 10px;">
+                            <?php wns_te('sync_cronjob_now'); ?>
+                        </button>
+                    </div>
+                    <div id="wns-cronjob-test-result" style="margin-top: 15px;"></div>
+                    <?php endif; ?>
+                </div>
+                
                 <script>
                 document.addEventListener('DOMContentLoaded', function() {
                     var radioButtons = document.querySelectorAll('input[name="wns_mail_type"]');
@@ -3674,6 +4079,75 @@ ${footerHTML}
                     radioButtons.forEach(function(radio) {
                         radio.addEventListener('change', toggleSmtpConfig);
                     });
+                    
+                    // Cron-job.org integration toggle
+                    var cronjobCheckbox = document.querySelector('input[name="wns_cronjob_enabled"]');
+                    var cronjobConfig = document.getElementById('wns-cronjob-config');
+                    
+                    if (cronjobCheckbox && cronjobConfig) {
+                        cronjobCheckbox.addEventListener('change', function() {
+                            cronjobConfig.style.display = this.checked ? 'block' : 'none';
+                        });
+                    }
+                    
+                    // Test cron-job.org connection
+                    var testCronjobBtn = document.getElementById('wns-test-cronjob');
+                    if (testCronjobBtn) {
+                        testCronjobBtn.addEventListener('click', function() {
+                            var resultDiv = document.getElementById('wns-cronjob-test-result');
+                            resultDiv.innerHTML = '<p style="color: #666;">Testing connection...</p>';
+                            
+                            jQuery.ajax({
+                                url: ajaxurl,
+                                type: 'POST',
+                                data: {
+                                    action: 'wns_test_cronjob',
+                                    nonce: '<?php echo wp_create_nonce('wns_cronjob_test'); ?>'
+                                },
+                                success: function(response) {
+                                    if (response.success) {
+                                        resultDiv.innerHTML = '<div style="padding: 12px; background: #e7f7e7; border: 1px solid #4caf50; border-radius: 4px; color: #2e7d32;"><span class="dashicons dashicons-yes-alt"></span> ' + response.data.message + '</div>';
+                                    } else {
+                                        resultDiv.innerHTML = '<div style="padding: 12px; background: #ffe7e7; border: 1px solid #f44336; border-radius: 4px; color: #c62828;"><span class="dashicons dashicons-warning"></span> ' + response.data.message + '</div>';
+                                    }
+                                },
+                                error: function() {
+                                    resultDiv.innerHTML = '<div style="padding: 12px; background: #ffe7e7; border: 1px solid #f44336; border-radius: 4px; color: #c62828;">Failed to test connection</div>';
+                                }
+                            });
+                        });
+                    }
+                    
+                    // Sync cron-job now
+                    var syncCronjobBtn = document.getElementById('wns-sync-cronjob');
+                    if (syncCronjobBtn) {
+                        syncCronjobBtn.addEventListener('click', function() {
+                            var resultDiv = document.getElementById('wns-cronjob-test-result');
+                            resultDiv.innerHTML = '<p style="color: #666;">Syncing cron job...</p>';
+                            
+                            jQuery.ajax({
+                                url: ajaxurl,
+                                type: 'POST',
+                                data: {
+                                    action: 'wns_sync_cronjob_manual',
+                                    nonce: '<?php echo wp_create_nonce('wns_cronjob_sync'); ?>'
+                                },
+                                success: function(response) {
+                                    if (response.success) {
+                                        resultDiv.innerHTML = '<div style="padding: 12px; background: #e7f7e7; border: 1px solid #4caf50; border-radius: 4px; color: #2e7d32;"><span class="dashicons dashicons-yes-alt"></span> ' + response.data.message + '</div>';
+                                        setTimeout(function() {
+                                            location.reload();
+                                        }, 1500);
+                                    } else {
+                                        resultDiv.innerHTML = '<div style="padding: 12px; background: #ffe7e7; border: 1px solid #f44336; border-radius: 4px; color: #c62828;"><span class="dashicons dashicons-warning"></span> ' + response.data.message + '</div>';
+                                    }
+                                },
+                                error: function() {
+                                    resultDiv.innerHTML = '<div style="padding: 12px; background: #ffe7e7; border: 1px solid #f44336; border-radius: 4px; color: #c62828;">Failed to sync cron job</div>';
+                                }
+                            });
+                        });
+                    }
                 });
                 </script>
             </div>
@@ -4116,6 +4590,42 @@ add_action('admin_post_wns_test_email', function() {
         if (!$redirect) $redirect = admin_url('admin.php?page=wns-main');
         wp_redirect($redirect);
         exit;
+    }
+});
+
+// AJAX handler for testing cron-job.org connection
+add_action('wp_ajax_wns_test_cronjob', function() {
+    check_ajax_referer('wns_cronjob_test', 'nonce');
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'Insufficient permissions']);
+        return;
+    }
+    
+    $result = wns_test_cronjob_connection();
+    
+    if ($result['success']) {
+        wp_send_json_success(['message' => $result['message']]);
+    } else {
+        wp_send_json_error(['message' => isset($result['error']) ? $result['error'] : 'Connection test failed']);
+    }
+});
+
+// AJAX handler for manual cron-job sync
+add_action('wp_ajax_wns_sync_cronjob_manual', function() {
+    check_ajax_referer('wns_cronjob_sync', 'nonce');
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'Insufficient permissions']);
+        return;
+    }
+    
+    $result = wns_sync_cronjob();
+    
+    if ($result['success']) {
+        wp_send_json_success(['message' => $result['message']]);
+    } else {
+        wp_send_json_error(['message' => isset($result['error']) ? $result['error'] : 'Sync failed']);
     }
 });
 
