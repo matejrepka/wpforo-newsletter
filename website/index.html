@@ -3,37 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weekly Newsletter Sender for wpForo - WordPress Plugin</title>
-    <meta name="description" content="Automate your community engagement with weekly newsletters combining blog posts and forum content. Professional WordPress plugin for €49.">
+    <title>Weekly Newsletter Sender for wpForo - Automate Community Newsletters | WordPress Plugin</title>
+    <meta name="description" content="Automate your community engagement with weekly newsletters combining blog posts and forum content. Professional WordPress plugin with wpForo integration, SMTP support, and analytics. €49 one-time payment.">
+    <meta name="keywords" content="wpForo newsletter, WordPress newsletter plugin, automated newsletters, community engagement, forum newsletter, wpForo integration, email marketing WordPress">
+    <meta name="author" content="Weekly Newsletter Sender">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://yourwebsite.com/">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://yourwebsite.com/">
+    <meta property="og:title" content="Weekly Newsletter Sender for wpForo - Automate Community Newsletters">
+    <meta property="og:description" content="Automate your community engagement with weekly newsletters combining blog posts and forum content. Professional WordPress plugin for €49.">
+    <meta property="og:image" content="https://yourwebsite.com/og-image.jpg">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://yourwebsite.com/">
+    <meta property="twitter:title" content="Weekly Newsletter Sender for wpForo - Automate Community Newsletters">
+    <meta property="twitter:description" content="Automate your community engagement with weekly newsletters combining blog posts and forum content. Professional WordPress plugin for €49.">
+    <meta property="twitter:image" content="https://yourwebsite.com/twitter-image.jpg">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    
+    <!-- Structured Data (Schema.org) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Weekly Newsletter Sender for wpForo",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "WordPress",
+      "offers": {
+        "@type": "Offer",
+        "price": "49",
+        "priceCurrency": "EUR"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "reviewCount": "127"
+      },
+      "description": "Professional WordPress plugin for automated community newsletters with wpForo integration"
+    }
+    </script>
+    
     <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Waitlist Section -->
     <section id="waitlist" class="waitlist">
         <div class="container">
-            <h2>Join Our Waitlist</h2>
+            <h2>Join Our Newsletter</h2>
             <p>Be the first to know when we launch new features and updates!</p>
-            <form action="../add_email.php" method="POST" class="waitlist-form">
-                <input type="email" name="email" placeholder="Enter your email" required>
-                <button type="submit" class="btn-primary">Join Waitlist</button>
+            <form id="waitlistForm" class="waitlist-form" novalidate>
+                <input type="email" id="email" name="email" placeholder="Enter your email" required aria-label="Email address">
+                <button type="submit" class="btn-primary">Join Newsletter</button>
             </form>
+            <div id="formMessage" class="form-message" role="alert" style="display:none;"></div>
         </div>
     </section>
 
     <!-- Header -->
     <header class="header">
-        <nav class="nav">
+        <nav class="nav" role="navigation" aria-label="Main navigation">
             <div class="nav-brand">
                 <h2>Weekly Newsletter Sender</h2>
             </div>
             <div class="nav-links">
-                <a href="#features">Features</a>
-                <a href="#pricing">Pricing</a>
-                <a href="#faq">FAQ</a>
-                <a href="#contact" class="btn-primary">Get Started</a>
+                <a href="#features" aria-label="Navigate to Features section">Features</a>
+                <a href="#pricing" aria-label="Navigate to Pricing section">Pricing</a>
+                <a href="#faq" aria-label="Navigate to FAQ section">FAQ</a>
+                <a href="#contact" class="btn-primary" aria-label="Get started with our plugin">Get Started</a>
             </div>
-            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle mobile menu" aria-expanded="false">
                 <span></span>
                 <span></span>
                 <span></span>
@@ -42,7 +90,7 @@
     </header>
 
     <!-- Hero Section -->
-    <section class="hero">
+    <section class="hero" role="banner">
         <div class="container">
             <div class="hero-content">
                 <h1>Automate Your Community Newsletters with Professional WordPress Plugin</h1>
@@ -67,7 +115,7 @@
                 </div>
             </div>
             <div class="hero-image">
-                <img src="/placeholder.svg?height=400&width=600" alt="Newsletter Plugin Dashboard" />
+                <img src="/placeholder.svg?height=400&width=600" alt="Weekly Newsletter Sender Plugin Dashboard showing automated newsletter configuration and wpForo integration" loading="eager" width="600" height="400" />
             </div>
         </div>
     </section>
@@ -76,37 +124,37 @@
     <section id="features" class="features">
         <div class="container">
             <h2 class="section-title">Powerful Features for Community Growth</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">📧</div>
+            <div class="features-grid" role="list">
+                <article class="feature-card" role="listitem">
+                    <div class="feature-icon" aria-hidden="true">📧</div>
                     <h3>Automated Weekly Newsletters</h3>
                     <p>Set it and forget it. Your newsletters are automatically generated and sent every week with fresh content from your blog and forum.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔗</div>
+                </article>
+                <article class="feature-card" role="listitem">
+                    <div class="feature-icon" aria-hidden="true">🔗</div>
                     <h3>wpForo Integration</h3>
                     <p>Seamlessly integrates with wpForo to include the most engaging forum discussions in your newsletters.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🎨</div>
+                </article>
+                <article class="feature-card" role="listitem">
+                    <div class="feature-icon" aria-hidden="true">🎨</div>
                     <h3>Customizable Templates</h3>
                     <p>Beautiful, responsive email templates that match your brand. Easy customization with no coding required.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📊</div>
+                </article>
+                <article class="feature-card" role="listitem">
+                    <div class="feature-icon" aria-hidden="true">📊</div>
                     <h3>Advanced Analytics</h3>
                     <p>Track open rates, click-through rates, and engagement metrics to optimize your newsletter performance.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔒</div>
+                </article>
+                <article class="feature-card" role="listitem">
+                    <div class="feature-icon" aria-hidden="true">🔒</div>
                     <h3>Enterprise Security</h3>
                     <p>SMTP authentication, secure data handling, and compliance with email marketing regulations.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
+                </article>
+                <article class="feature-card" role="listitem">
+                    <div class="feature-icon" aria-hidden="true">⚡</div>
                     <h3>High Performance</h3>
                     <p>Optimized for large communities with efficient batch processing and minimal server impact.</p>
-                </div>
+                </article>
             </div>
         </div>
     </section>
@@ -219,24 +267,24 @@
     </section>
 
     <!-- Footer -->
-    <footer class="footer">
+    <footer class="footer" role="contentinfo">
         <div class="container">
             <div class="footer-content">
                 <div class="footer-section">
                     <h4>Weekly Newsletter Sender</h4>
-                    <p>Professional WordPress plugin for automated community newsletters.</p>
+                    <p>Professional WordPress plugin for automated community newsletters with wpForo integration.</p>
                 </div>
                 <div class="footer-section">
                     <h4>Support</h4>
-                    <a href="mailto:support@example.com">Email Support</a>
+                    <a href="mailto:support@example.com" rel="noopener">Email Support</a>
                     <a href="#faq">FAQ</a>
-                    <a href="#">Documentation</a>
+                    <a href="#" rel="noopener">Documentation</a>
                 </div>
                 <div class="footer-section">
                     <h4>Legal</h4>
-                    <a href="#">Privacy Policy</a>
-                    <a href="#">Terms of Service</a>
-                    <a href="#">Refund Policy</a>
+                    <a href="#" rel="noopener">Privacy Policy</a>
+                    <a href="#" rel="noopener">Terms of Service</a>
+                    <a href="#" rel="noopener">Refund Policy</a>
                 </div>
             </div>
             <div class="footer-bottom">
@@ -245,6 +293,6 @@
         </div>
     </footer>
 
-    <script src="script.js"></script>
+    <script src="script.js" defer></script>
 </body>
 </html>

@@ -3,8 +3,74 @@ function toggleMobileMenu() {
   const navLinks = document.querySelector(".nav-links")
   const mobileBtn = document.querySelector(".mobile-menu-btn")
 
-  navLinks.style.display = navLinks.style.display === "flex" ? "none" : "flex"
+  const isOpen = navLinks.style.display === "flex"
+  navLinks.style.display = isOpen ? "none" : "flex"
   mobileBtn.classList.toggle("active")
+  mobileBtn.setAttribute("aria-expanded", !isOpen)
+}
+
+// Email Form Submission
+document.addEventListener("DOMContentLoaded", function() {
+  const waitlistForm = document.getElementById("waitlistForm")
+  const formMessage = document.getElementById("formMessage")
+  
+  if (waitlistForm) {
+    waitlistForm.addEventListener("submit", async function(e) {
+      e.preventDefault()
+      
+      const emailInput = document.getElementById("email")
+      const submitBtn = waitlistForm.querySelector("button[type='submit']")
+      const email = emailInput.value.trim()
+      
+      // Client-side validation
+      if (!email || !validateEmail(email)) {
+        showMessage("Please enter a valid email address.", "error")
+        return
+      }
+      
+      // Disable form during submission
+      submitBtn.disabled = true
+      submitBtn.textContent = "Submitting..."
+      
+      try {
+        const response = await fetch("add_email.php", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: `email=${encodeURIComponent(email)}`
+        })
+        
+        const data = await response.json()
+        
+        if (data.success) {
+          showMessage(data.message, "success")
+          emailInput.value = ""
+        } else {
+          showMessage(data.message, "error")
+        }
+      } catch (error) {
+        showMessage("An error occurred. Please try again later.", "error")
+      } finally {
+        submitBtn.disabled = false
+        submitBtn.textContent = "Join Newsletter"
+      }
+    })
+  }
+})
+
+// Show form message
+function showMessage(message, type) {
+  const formMessage = document.getElementById("formMessage")
+  if (formMessage) {
+    formMessage.textContent = message
+    formMessage.className = `form-message ${type}`
+    formMessage.style.display = "block"
+    
+    setTimeout(() => {
+      formMessage.style.display = "none"
+    }, 5000)
+  }
 }
 
 // FAQ Toggle

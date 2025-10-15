@@ -88,6 +88,82 @@ p {
   font-size: 1.1rem;
 }
 
+/* Waitlist Section */
+.waitlist {
+  background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+  padding: 1.5rem 0;
+  color: white;
+  text-align: center;
+}
+
+.waitlist h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: white;
+}
+
+.waitlist p {
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 1rem;
+}
+
+.waitlist-form {
+  display: flex;
+  gap: 1rem;
+  max-width: 500px;
+  margin: 0 auto;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.waitlist-form input[type="email"] {
+  flex: 1;
+  min-width: 250px;
+  padding: 12px 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.waitlist-form input[type="email"]::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.waitlist-form input[type="email"]:focus {
+  outline: none;
+  border-color: white;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.waitlist-form button {
+  white-space: nowrap;
+}
+
+.form-message {
+  margin-top: 1rem;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.form-message.success {
+  background: rgba(16, 185, 129, 0.2);
+  border: 2px solid rgba(16, 185, 129, 0.5);
+  color: white;
+}
+
+.form-message.error {
+  background: rgba(239, 68, 68, 0.2);
+  border: 2px solid rgba(239, 68, 68, 0.5);
+  color: white;
+}
+
 /* Header */
 .header {
   background: rgba(255, 255, 255, 0.95);

@@ -1,0 +1,12 @@
+# robots.txt for Weekly Newsletter Sender Plugin Website
+
+User-agent: *
+Allow: /
+Disallow: /config.php
+Disallow: /add_email.php
+
+# Sitemap location
+Sitemap: https://yourwebsite.com/sitemap.xml
+
+# Crawl delay (optional, adjust as needed)
+Crawl-delay: 10
