@@ -3680,8 +3680,7 @@ ${footerHTML}
             
             <!-- Preview Tab -->
             <div class="wns-tab-content <?php echo $current_tab === 'preview' ? 'active' : ''; ?>">
-                <div class="wns-section">
-                    <div id="wns-email-preview-content" class="wns-email-preview-content">
+                <div id="wns-email-preview-content" class="wns-email-preview-content">
                         <?php if ($current_tab === 'preview'): ?>
                             <?php
                             // Auto-generate preview when tab is active
@@ -3840,29 +3839,31 @@ ${footerHTML}
                                 ?>
                                 
                                 <div class="wns-preview-meta">
-                                    <div class="wns-preview-meta-item">
-                                        <div class="wns-preview-meta-label"><?php echo wns_t('subject_line'); ?></div>
-                                        <div class="wns-preview-meta-value"><?php echo esc_html($subject); ?></div>
-                                    </div>
-                                    <div class="wns-preview-meta-item">
-                                        <div class="wns-preview-meta-label"><?php echo wns_t('recipients'); ?></div>
-                                        <div class="wns-preview-meta-value"><?php echo $recipients_count; ?> <?php echo wns_t('users'); ?></div>
-                                    </div>
-                                    <div class="wns-preview-meta-item">
-                                        <div class="wns-preview-meta-label"><?php echo wns_t('content_period'); ?></div>
-                                        <div class="wns-preview-meta-value"><?php echo date('M j', strtotime($date_from_str)) . ' - ' . date('M j, Y', strtotime($date_to_str)); ?></div>
-                                    </div>
-                                    <div class="wns-preview-meta-item">
-                                        <div class="wns-preview-meta-label"><?php echo wns_t('wordpress_posts'); ?></div>
-                                        <div class="wns-preview-meta-value"><?php echo count($wp_posts); ?> <?php echo wns_t('posts'); ?><?php echo $wp_status; ?></div>
-                                    </div>
-                                    <div class="wns-preview-meta-item">
-                                        <div class="wns-preview-meta-label"><?php echo wns_t('forum_activities'); ?></div>
-                                        <div class="wns-preview-meta-value"><?php echo $forum_activity_count; ?> <?php echo wns_t('posts'); ?> <?php echo wns_t('in'); ?> <?php echo count($wpforo_summary); ?> <?php echo wns_t('forums'); ?><?php echo $forum_status; ?></div>
-                                    </div>
-                                    <div class="wns-preview-meta-item">
-                                        <div class="wns-preview-meta-label"><?php echo wns_t('scheduled_send'); ?></div>
-                                        <div class="wns-preview-meta-value"><?php echo isset($target) ? $target->format('M j, Y H:i') : wns_t('not_calculated'); ?></div>
+                                    <div>
+                                        <div class="wns-preview-meta-item">
+                                            <div class="wns-preview-meta-label"><?php echo wns_t('subject_line'); ?></div>
+                                            <div class="wns-preview-meta-value"><?php echo esc_html($subject); ?></div>
+                                        </div>
+                                        <div class="wns-preview-meta-item">
+                                            <div class="wns-preview-meta-label"><?php echo wns_t('recipients'); ?></div>
+                                            <div class="wns-preview-meta-value"><?php echo $recipients_count; ?> <?php echo wns_t('users'); ?></div>
+                                        </div>
+                                        <div class="wns-preview-meta-item">
+                                            <div class="wns-preview-meta-label"><?php echo wns_t('content_period'); ?></div>
+                                            <div class="wns-preview-meta-value"><?php echo date('M j', strtotime($date_from_str)) . ' - ' . date('M j, Y', strtotime($date_to_str)); ?></div>
+                                        </div>
+                                        <div class="wns-preview-meta-item">
+                                            <div class="wns-preview-meta-label"><?php echo wns_t('wordpress_posts'); ?></div>
+                                            <div class="wns-preview-meta-value"><?php echo count($wp_posts); ?> <?php echo wns_t('posts'); ?><?php echo $wp_status; ?></div>
+                                        </div>
+                                        <div class="wns-preview-meta-item">
+                                            <div class="wns-preview-meta-label"><?php echo wns_t('forum_activities'); ?></div>
+                                            <div class="wns-preview-meta-value"><?php echo $forum_activity_count; ?> <?php echo wns_t('posts'); ?> <?php echo wns_t('in'); ?> <?php echo count($wpforo_summary); ?> <?php echo wns_t('forums'); ?><?php echo $forum_status; ?></div>
+                                        </div>
+                                        <div class="wns-preview-meta-item">
+                                            <div class="wns-preview-meta-label"><?php echo wns_t('scheduled_send'); ?></div>
+                                            <div class="wns-preview-meta-value"><?php echo isset($target) ? $target->format('M j, Y H:i') : wns_t('not_calculated'); ?></div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="wns-preview-email-content">
@@ -3899,7 +3900,6 @@ ${footerHTML}
                                 Preview will load when tab is selected...
                             </div>
                         <?php endif; ?>
-                    </div>
                 </div>
                 
                 <style>
@@ -3911,10 +3911,8 @@ ${footerHTML}
                     border: 1px solid #dee2e6;
                 }
                 .wns-email-preview-content {
-                    border: 1px solid #ccc;
-                    border-radius: 6px;
-                    background: #fff;
-                    overflow: hidden;
+                    background: transparent;
+                    overflow: visible;
                 }
                 .wns-email-preview-content iframe {
                     width: 100%;
@@ -3941,14 +3939,24 @@ ${footerHTML}
                     0% { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
                 }
+                #wns-email-preview-content {
+                    margin: -48px -80px 0 -80px;
+                    padding: 48px 80px 0 80px;
+                }
                 .wns-preview-meta {
-                    background: linear-gradient(135deg, #333333 0%, #1a1a1a 100%);
+                    background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
                     color: #fff;
-                    padding: 25px 30px;
                     font-size: 13px;
+                    margin: -48px -80px 30px -80px;
+                    padding: 25px 80px;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+                    border: 1px solid #444;
+                    border-radius: 8px;
+                }
+                .wns-preview-meta > div {
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                    gap: 15px;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 20px 30px;
                 }
                 .wns-preview-meta-item {
                     display: flex;
@@ -3972,6 +3980,8 @@ ${footerHTML}
                     color: #721c24;
                     padding: 15px 20px;
                     border-left: 4px solid #dc3545;
+                    border-radius: 6px;
+                    margin-bottom: 20px;
                 }
                 </style>
                 
