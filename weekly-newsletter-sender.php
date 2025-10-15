@@ -3681,38 +3681,6 @@ ${footerHTML}
             <!-- Preview Tab -->
             <div class="wns-tab-content <?php echo $current_tab === 'preview' ? 'active' : ''; ?>">
                 <div class="wns-section">
-                    <div class="wns-section-title">📧 <?php wns_te('next_email_preview_title'); ?></div>
-                    <div class="wns-form-help" style="margin-bottom: 20px;">
-                        <?php wns_te('preview_description'); ?>
-                    </div>
-                    
-                    <?php
-                    // Display current date range settings
-                    $preview_date_range_type = get_option('wns_date_range_type', 'week');
-                    if ($preview_date_range_type === 'custom') {
-                        $preview_date_from = get_option('wns_date_from');
-                        $preview_date_to = get_option('wns_date_to');
-                        echo '<div class="wns-info-text" style="background: #e7f3ff; border-left: 4px solid #2271b1; padding: 12px; margin-bottom: 15px;">';
-                        echo '<strong>📅 ' . wns_t('date_range_label', 'Date Range') . ':</strong> ';
-                        echo wns_t('custom_range', 'Custom') . ' - ';
-                        echo esc_html(date('d.m.Y', strtotime($preview_date_from))) . ' ' . wns_t('to_label', 'to') . ' ' . esc_html(date('d.m.Y', strtotime($preview_date_to)));
-                        echo '</div>';
-                    } else {
-                        $preview_send_day = get_option('wns_send_day', 'monday');
-                        echo '<div class="wns-info-text" style="background: #e7f3ff; border-left: 4px solid #2271b1; padding: 12px; margin-bottom: 15px;">';
-                        echo '<strong>📅 ' . wns_t('date_range_label', 'Date Range') . ':</strong> ';
-                        echo wns_t('latest_this_week', 'Latest this week') . ' (' . wns_t('7_days_before_send', '7 days before') . ' ' . ucfirst($preview_send_day) . ')';
-                        echo '</div>';
-                    }
-                    ?>
-                    
-                    <div class="wns-preview-controls-section">
-                        <button type="button" id="wns-refresh-preview" class="button button-secondary">
-                            🔄 <?php wns_te('refresh_preview'); ?>
-                        </button>
-                        <span class="wns-preview-status" style="margin-left: 15px; color: #666;"><?php wns_te('loading_preview'); ?></span>
-                    </div>
-                    
                     <div id="wns-email-preview-content" class="wns-email-preview-content">
                         <?php if ($current_tab === 'preview'): ?>
                             <?php
