@@ -3950,15 +3950,13 @@ ${footerHTML}
                     background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
                     color: #fff;
                     font-size: 13px;
-                    margin: 0 0 30px 0;
-                    padding: 25px 80px;
+                    margin-left: calc(-50vw + 50%);
+                    margin-right: calc(-50vw + 50%);
+                    margin-bottom: 30px;
+                    padding: 25px max(80px, calc(50vw - 50%));
                     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
                     border: 1px solid #444;
                     border-radius: 8px;
-                    width: 100vw;
-                    position: relative;
-                    left: 50%;
-                    transform: translateX(-50%);
                 }
                 .wns-preview-meta > div {
                     display: grid;
@@ -3997,7 +3995,7 @@ ${footerHTML}
                         margin-right: -20px;
                     }
                     .wns-preview-meta {
-                        padding: 20px 20px;
+                        padding: 20px max(20px, calc(50vw - 50%));
                     }
                     .wns-preview-meta > div {
                         grid-template-columns: 1fr;
