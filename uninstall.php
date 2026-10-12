@@ -6,7 +6,7 @@
  * It cleans up all plugin data from the database.
  * 
  * @package WeeklyNewsletterSender
- * @version 1.0.0
+ * @version 1.0.2
  * @author Marep
  * @license GPL-2.0-or-later
  */
@@ -14,11 +14,6 @@
 // Prevent direct access
 if (!defined('WP_UNINSTALL_PLUGIN')) {
     die('Direct access forbidden.');
-}
-
-// Security check - ensure we're actually uninstalling
-if (!current_user_can('delete_plugins')) {
-    return;
 }
 
 /**
@@ -38,6 +33,15 @@ function wns_cleanup_options() {
         'wns_include_forum',
         'wns_include_wp',
         'wns_from_name',
+        'wns_post_types',
+        'wns_language',
+        'wns_version',
+        'wns_admin_notices',
+        'wns_next_scheduled_send',
+        'wns_next_email_content',
+        'wns_cronjob_enabled',
+        'wns_cronjob_api_key',
+        'wns_cronjob_id',
         
         // Mail configuration
         'wns_mail_type',
@@ -65,6 +69,7 @@ function wns_cleanup_options() {
         'wns_email_header_title',
         'wns_email_header_subtitle',
         'wns_email_intro_text',
+        'wns_email_intro_text_size',
         
         // License and security
         'wns_license_accepted',
@@ -134,29 +139,6 @@ function wns_uninstall_cleanup() {
     wns_cleanup_cron();
     wns_cleanup_transients();
     
-    // Final cleanup - remove any uploaded files if applicable
-    $upload_dir = wp_upload_dir();
-    $plugin_upload_dir = $upload_dir['basedir'] . '/weekly-newsletter-sender';
-    
-    if (is_dir($plugin_upload_dir)) {
-        // Remove plugin upload directory if it exists
-        // Be very careful here - only remove if it's definitely our directory
-        $files = glob($plugin_upload_dir . '/*');
-        foreach ($files as $file) {
-            if (is_file($file)) {
-                unlink($file);
-            }
-        }
-        if (is_dir($plugin_upload_dir)) {
-            rmdir($plugin_upload_dir);
-        }
-    }
-    
-    // Clear any cached data
-    if (function_exists('wp_cache_flush')) {
-        wp_cache_flush();
-    }
-    
     // Log completion
     if (defined('WP_DEBUG') && WP_DEBUG) {
         error_log('[WNS] Plugin uninstall cleanup completed.');
@@ -164,6 +146,19 @@ function wns_uninstall_cleanup() {
 }
 
 // Execute the cleanup
-wns_uninstall_cleanup();
+if (is_multisite()) {
+    $offset = 0;
+    do {
+        $site_ids = get_sites(['fields' => 'ids', 'number' => 100, 'offset' => $offset]);
+        foreach ($site_ids as $site_id) {
+            switch_to_blog($site_id);
+            wns_uninstall_cleanup();
+            restore_current_blog();
+        }
+        $offset += count($site_ids);
+    } while (count($site_ids) === 100);
+} else {
+    wns_uninstall_cleanup();
+}
 
 // End of uninstall script

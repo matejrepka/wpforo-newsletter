@@ -4,6 +4,15 @@
  */
 
 return [
+    'newsletter_navigation' => 'Newsletter sections',
+    'post_types_label' => 'Post Types to Include',
+    'post_types_help' => 'Select the content types to include. Leave all unchecked to exclude WordPress content.',
+    'intro_text_size_label' => 'Intro Text Size',
+    'intro_text_size_help' => 'Adjust the size of the intro text.',
+    'dismiss_notice' => 'Dismiss notification',
+    'language_switch_confirm' => 'Change the interface language? The page will reload and unsaved changes will be lost.',
+    'preview_refresh_failed' => 'Could not refresh the preview. Your previous preview is still shown. Try again.',
+    'preview_refresh_loading' => 'Refreshing your email preview…',
     // Activation messages
     'plugin_activated' => 'Weekly Newsletter Sender Activated!',
     'activation_config_message' => 'You can now <a href="%s" style="font-weight: 600;">configure your newsletter settings</a> and start sending newsletters.',
@@ -164,7 +173,7 @@ return [
     'slovak' => 'Slovak',
     
     // Footer
-    'plugin_footer' => 'Weekly Newsletter Sender v1.0 by <a href="https://marep.sk" target="_blank" style="color: #4a4a4a; text-decoration: none; font-weight: bold;">Marep</a>',
+    'plugin_footer' => 'Weekly Newsletter Sender v{version} by <a href="https://marep.sk" target="_blank" style="color: #4a4a4a; text-decoration: none; font-weight: bold;">Marep</a>',
     'need_support' => 'Need support? Contact: <a href="mailto:support@marep.sk" style="color: #4a4a4a; text-decoration: none;">support@marep.sk</a> | <a href="https://marep.sk" target="_blank" style="color: #4a4a4a; text-decoration: none;">marep.sk</a>',
     
     // Error messages

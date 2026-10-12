@@ -4,6 +4,15 @@
  */
 
 return [
+    'newsletter_navigation' => 'Sekcie newslettera',
+    'post_types_label' => 'Typy obsahu na zahrnutie',
+    'post_types_help' => 'Vyberte typy obsahu, ktoré chcete zahrnúť. Ak nevyberiete žiadny typ, obsah WordPressu sa nezahrnie.',
+    'intro_text_size_label' => 'Veľkosť úvodného textu',
+    'intro_text_size_help' => 'Upravte veľkosť úvodného textu.',
+    'dismiss_notice' => 'Zavrieť oznámenie',
+    'language_switch_confirm' => 'Zmeniť jazyk rozhrania? Stránka sa obnoví a neuložené zmeny sa stratia.',
+    'preview_refresh_failed' => 'Náhľad sa nepodarilo obnoviť. Predchádzajúci náhľad je stále zobrazený. Skúste to znova.',
+    'preview_refresh_loading' => 'Obnovuje sa náhľad e-mailu…',
     // Activation messages
     'plugin_activated' => 'Weekly Newsletter Sender aktivovaný!',
     'activation_config_message' => 'Môžete si teraz <a href="%s" style="font-weight: 600;">nakonfigurovať nastavenia newslettra</a> a začať posielať newslettre.',
@@ -164,7 +173,7 @@ return [
     'slovak' => 'Slovenčina',
     
     // Footer
-    'plugin_footer' => 'Weekly Newsletter Sender v1.0 od <a href="https://marep.sk" target="_blank" style="color: #4a4a4a; text-decoration: none; font-weight: bold;">Marep</a>',
+    'plugin_footer' => 'Weekly Newsletter Sender v{version} od <a href="https://marep.sk" target="_blank" style="color: #4a4a4a; text-decoration: none; font-weight: bold;">Marep</a>',
     'need_support' => 'Potrebujete podporu? Kontakt: <a href="mailto:support@marep.sk" style="color: #4a4a4a; text-decoration: none;">support@marep.sk</a> | <a href="https://marep.sk" target="_blank" style="color: #4a4a4a; text-decoration: none;">marep.sk</a>',
     
     // Error messages

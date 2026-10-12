@@ -21,6 +21,12 @@ Thank you for helping improve Weekly Newsletter Sender.
 
 Do not commit generated ZIP packages, credentials, local environment files, or backup copies.
 
+## Validation
+
+Run `php tests/regression.php` with OpenSSL and PDO SQLite enabled. This suite uses WordPress API doubles, an in-memory SQL fixture, and simulated mail/API responses; it makes no network requests and sends no real email. See [tests/README.md](tests/README.md) for details. PHP syntax checks must include `includes/`, translations, uninstall, and test files.
+
+Run the staging checks in [docs/REVIEW-1.0.1.md](docs/REVIEW-1.0.1.md) before publishing. Offline checks do not establish live WordPress/wpForo compatibility or inbox delivery. Keep `WNS_VERSION`, the plugin header, `readme.txt`, and release documentation synchronized.
+
 ## Licensing
 
 By submitting a contribution, you agree that it may be distributed under the project's GPL-2.0-or-later license.
